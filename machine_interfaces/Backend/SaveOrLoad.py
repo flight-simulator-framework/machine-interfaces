@@ -14,6 +14,7 @@ except ImportError:
     from PyQt5.QtCore import QEvent, Qt
 import numpy as np
 from machine_interfaces.Backend.State import State, normalize_interface_id
+from machine_interfaces.Interfaces.interface_setup import get_intensity_labels
 
 
 def _match_exactly():
@@ -127,7 +128,8 @@ class SaveOrLoad():
         self._pick_and_load_data_dir(oper="dfs", button_ui=self.dfs_response_3, button_name="DFS Data Loaded")
 
     def _pick_and_load_wake_data(self):
-        self._pick_and_load_data_dir(oper="wfs", button_ui=self.wfs_response_3, button_name="WFS Data Loaded")
+        labels = get_intensity_labels(getattr(self, "interface", None))
+        self._pick_and_load_data_dir(oper="wfs", button_ui=self.wfs_response_3, button_name=labels["data_loaded"])
 
     def _pick_and_load_traj_data(self):
         self._pick_and_load_data_dir(oper="traj", button_ui=self.trajectory_response_3,button_name="Trajectory Data Loaded")
@@ -168,9 +170,10 @@ class SaveOrLoad():
         self.log("Restoring sextupoles' state from machine status...")
         self.interface.restore_sextupoles_state(state)
         self.log("Sextupoles restored!")
-        self.log("Restoring energy and intensity from machine status...")
+        labels = get_intensity_labels(self.interface)
+        self.log(labels["restore_start"])
         self.interface.restore_beam_settings(state.get_beam_settings())
-        self.log("Energy and intensity restored!")
+        self.log(labels["restore_done"])
 
         timestamp = state.get_timestamp()
         if getattr(timestamp, "tzinfo", None) is not None:

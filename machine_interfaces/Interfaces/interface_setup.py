@@ -281,9 +281,28 @@ INTERFACE_SETUP = {
                     "test": {"label": "Test [deg]", "attribute": "rf_phase_test", "default": 145.0},
                 },
                 "intensity": {
-                    "label": "Scale quadrupoles",
-                    "tooltip": "Enter the scaling factor of quadrupoles. It will scale the current quadrupole current to a scale * currents.",
+                    "label": "Quadrupole scaling",
+                    "tooltip": "Multiply the quadrupole currents captured when the interface was opened by this factor. Restore those currents afterward.",
                     "test": {"label": "Scaling factor", "attribute": "quadrupole_scaling_factor", "default": 0.5},
+                    "labels": {
+                        "mode": "Quadrupole scaling",
+                        "status": "Quadrupole scaling",
+                        "quantity": "Quadrupole scaling",
+                        "short": "Quadrupole scaling",
+                        "correction": "Quadrupole scaling correction",
+                        "weight": "Quadrupole scaling weight",
+                        "weight_tooltip": "Weight of the orbit-response change caused by scaling quadrupole currents. Higher values prioritize reducing this difference.",
+                        "plot_title": "Quadrupole scaling (Residual to response matrix reference)",
+                        "measuring": "Measuring orbit with scaled quadrupoles",
+                        "changed": "Quadrupole currents scaled",
+                        "directory": "quadrupole scaling",
+                        "data_loaded": "Quadrupole Scaling Data Loaded",
+                        "same_settings": "Orbit and quadrupole scaling measurements have the same settings.",
+                        "restore_error": "Could not confirm the machine returned to its nominal RF phase and initial quadrupole currents.",
+                        "restore_start": "Restoring RF phase and quadrupole settings from machine status...",
+                        "restore_done": "RF phase and quadrupole settings restored!",
+                        "jitter_tooltip": "Use upstream BPMs to estimate incoming beam jitter and subtract it from downstream BPM readings. With energy changes or quadrupole scaling, real orbit changes may be mistaken for jitter and over-subtracted.",
+                    },
                 },
             },
             "settings": {"nsamples":3},
@@ -337,3 +356,34 @@ INTERFACE_SETUP = {
         },
     ],
 }
+
+
+INTENSITY_LABELS = {
+    "mode": "Changed intensity",
+    "status": "Wakefield",
+    "quantity": "Wakefield",
+    "short": "WFS",
+    "correction": "Wakefield-Free Steering",
+    "weight": "Wakefield weight",
+    "weight_tooltip": "<html><head/><body><p>Weight of the WFS term. </p><p>Higher value makes the correction prioritize reducing intensity-dependent orbit changes. </p></body></html>",
+    "plot_title": "Wakefield (Residual to response matrix reference)",
+    "measuring": "Measuring wakefield",
+    "changed": "Intensity changed)",
+    "directory": "wakefield",
+    "data_loaded": "WFS Data Loaded",
+    "same_settings": "Orbit and Changed intensity measurements have the same settings.",
+    "restore_error": "Could not confirm the machine returned to its nominal energy/intensity.",
+    "restore_start": "Restoring energy and intensity from machine status...",
+    "restore_done": "Energy and intensity restored!"
+}
+
+
+def get_intensity_labels(interface=None):
+    interface_type = type(interface)
+    for interfaces in INTERFACE_SETUP.values():
+        for settings in interfaces:
+            if (settings.get("module") == interface_type.__module__
+                    and settings.get("class_name") == interface_type.__name__):
+                labels = settings.get("beam_change", {}).get("intensity", {}).get("labels", {})
+                return {**INTENSITY_LABELS, **labels}
+    return dict(INTENSITY_LABELS)
