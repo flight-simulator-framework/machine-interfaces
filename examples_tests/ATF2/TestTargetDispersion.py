@@ -1,8 +1,6 @@
 import sys
-sys.path.append('.')
-sys.path.append('Interfaces/ATF2')
 
-from Backend.State import State
+from machine_interfaces.Backend.State import State
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,10 +8,10 @@ import glob
 import os
 
 if 1:
-    from Interfaces.ATF2.InterfaceATF2_DR_RFTrack import InterfaceATF2_DR_RFTrack
+    from machine_interfaces.Interfaces.ATF2.InterfaceATF2_DR_RFTrack import InterfaceATF2_DR_RFTrack
     I = InterfaceATF2_DR_RFTrack()
 else:
-    from Interfaces.ATF2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
+    from machine_interfaces.Interfaces.ATF2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
     I = InterfaceATF2_Ext_RFTrack()
 
 project_name = I.get_name()

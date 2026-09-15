@@ -2,10 +2,10 @@ import RF_Track as rft
 import sys, time, math, os, threading, struct, ctypes, subprocess
 import numpy as np
 from epics import PV, ca, caget
-from AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 from collections import defaultdict
-from ATF2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
-from ATF2.MagKi import load_mag_ki
+from machine_interfaces.Interfaces.ATF2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
+from machine_interfaces.Interfaces.ATF2.MagKi import load_mag_ki
 
 class CurrentDropToZeroError(RuntimeError):
     def __init__(self, message, *, target=None, readback=None, magnets=None):

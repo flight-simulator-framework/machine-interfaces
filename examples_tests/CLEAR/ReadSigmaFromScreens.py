@@ -1,6 +1,6 @@
 import numpy as np
-from Backend.State import State
-from Interfaces.CLEAR.InterfaceCLEAR import CLEAR_real_machine
+from machine_interfaces.Backend.State import State
+from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR import CLEAR_real_machine
 
 state = State(filename="/Users/wiktoriamalek/CERN-Flight_Simulator-Data/CLEAR_EM_260821/Quadrupole_scan_CLEAR_CA.QFD0350_20260821_190813/states_CA.QFD0350_20260821_190813/screen_0000_step_0001_shot_0009.pkl")
 screen = state.get_screens()

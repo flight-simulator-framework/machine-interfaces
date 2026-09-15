@@ -1,8 +1,8 @@
 import sys
 import numpy as np
 import time, math
-from Backend.LogConsole import LogConsole
-from AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Backend.LogConsole import LogConsole
+from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 from typing import Dict, Optional
 
 from epics import PV, ca

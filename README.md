@@ -5,7 +5,7 @@ Connect Flight Simulator applications to an accelerator control system or a simu
 The repository contains interfaces for ATF2, CLEAR and FACET2, including live-machine and RFTrack implementations.
 
 
-The available choices are registered in `Interfaces/interface_setup.py`; `Backend/SelectInterface.py` provides the selection window.
+The available choices are registered in `machine_interfaces/Interfaces/interface_setup.py`; `machine_interfaces/Backend/SelectInterface.py` provides the selection window.
 
 ## Connecting a new machine
 
@@ -106,14 +106,14 @@ Scan ranges are entered in amperes. If a quadrupole's `value_unit` is not `A`, t
 
 ## Next steps to create a new machine interface
 
-The first step is modifying the `Interfaces/interface_setup.py`, grouped by accelerator.
+The first step is modifying the `machine_interfaces/Interfaces/interface_setup.py`, grouped by accelerator.
 
 An example of an entry is:
 
 ```python
 {
     "display_name": "New accelerator",
-    "module": "Interfaces.NewAccelerator.InterfaceNewAccelerator",
+    "module": "machine_interfaces.Interfaces.NewAccelerator.InterfaceNewAccelerator",
     "class_name": "InterfaceNewAccelerator",
     "settings": {"nsamples": 3},
     "units": {
@@ -127,22 +127,45 @@ An example of an entry is:
 The values are an example structure only; choose real units and appropriate kicks for the new machine. The module path must match the implementation.
 
 1. Provide device inventories, beamline order, acquisition methods, corrector setters and the required energy/intensity methods. Follow the documented data shapes, device ordering and units.
-2. Register the interface and its constructor settings in `Interfaces/interface_setup.py` so that it appears in the selector.
+2. Register the interface and its constructor settings in `machine_interfaces/Interfaces/interface_setup.py` so that it appears in the selector.
 
 ## Shared application utilities
 
 This repository also provides the common modules used by the applications:
 
-- `Backend/State.py`: machine snapshots, device selection, orbit summaries and snapshot persistence.
-- `Backend/SaveOrLoad.py`: saving and loading device selections and measurement sessions.
-- `Backend/LogConsole.py`: application log dialog.
-- `Backend/ActuatorMode.py`: corrector and quadrupole-mover modes.
-- `Knobs/jitter_subtraction.py`: estimation and subtraction of correlated beam motion using upstream BPMs.
+- `machine_interfaces/Backend/State.py`: machine snapshots, device selection, orbit summaries and snapshot persistence.
+- `machine_interfaces/Backend/SaveOrLoad.py`: saving and loading device selections and measurement sessions.
+- `machine_interfaces/Backend/LogConsole.py`: application log dialog.
+- `machine_interfaces/Backend/ActuatorMode.py`: corrector and quadrupole-mover modes.
+- `machine_interfaces/Knobs/jitter_subtraction.py`: estimation and subtraction of correlated beam motion using upstream BPMs.
 
 ## Installation
 
 Use Python 3.11 or newer and Poetry 2 or newer. From the repository directory, install the dependencies:
 
 ```bash
-poetry install
+poetry install --extras "rftrack epics madx tao"
 ```
+
+The Python package is named `machine_interfaces`. For example:
+
+```python
+from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
+```
+
+## ATF2 magnet-current calibration
+
+ATF2 emittance scans and magnet-current conversion require the native `libmagnet` library. Install a C compiler, GNU Fortran (`gfortran`) and `make`, then build it from the sources in this repository:
+
+```bash
+cd "machine_interfaces/Machine specifics, user implementations/ATF2/libmagnet"
+make CFLAG=-fPIC
+```
+
+On macOS, also run:
+
+```bash
+gfortran -dynamiclib -o libmagnet.dylib *.o
+```
+
+On Linux, `make` produces `libmagnet.so`. Keep the resulting library in this directory; applications using the editable package will find it automatically. A prebuilt library must match the operating system and CPU architecture. To use a library stored elsewhere, set `ATF2_MAG_KI_LIB` to its absolute path. Compiled libraries and object files are excluded from Git.

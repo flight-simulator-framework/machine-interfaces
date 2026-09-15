@@ -4,12 +4,7 @@ import matplotlib
 import numpy as np
 matplotlib.use("QtAgg")
 import matplotlib.pyplot as plt
-project_root_path = Path.cwd().resolve()
-while not (project_root_path / "Interfaces").exists() and project_root_path.parent != project_root_path:
-    project_root_path = project_root_path.parent
-sys.path.insert(0, str(project_root_path))
-os.chdir(project_root_path)
-from Interfaces.CLEAR.Setup_files.CLEAR_BPM_getHV import change_inverted_bpm_polarity, process_bpm_signal
+from machine_interfaces.Interfaces.CLEAR.Setup_files.CLEAR_BPM_getHV import change_inverted_bpm_polarity, process_bpm_signal
 path_to_datafiles = "/Users/wiktoriamalek/CERN-Flight_Simulator-Data/20260729_BPMtests"
 bpms = ["BPM0530", "BPM0595", "BPM0690", "BPM0820", "BPM0890"]
 

@@ -1,9 +1,9 @@
 import RF_Track as rft
 import numpy as np
 import time, os, re, copy
-from Backend.LogConsole import LogConsole
+from machine_interfaces.Backend.LogConsole import LogConsole
 from datetime import datetime
-from AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 
 class InterfaceATF2_Linac_RFTrack(AbstractMachineInterface):
 

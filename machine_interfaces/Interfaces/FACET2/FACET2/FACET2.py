@@ -8,6 +8,7 @@ Python translation of the Octave RF-Track lattice builder:
 """
 
 import math
+from pathlib import Path
 import numpy as np
 
 import RF_Track as rft  # RF-Track Python module / bindings
@@ -18,7 +19,7 @@ def import_BMAD():
     from pytao import Tao, SubprocessTao
 
     # Load the lattice file 'FACET-II-Wakes.lat.bmad'
-    tao_init_file = "tao.init"
+    tao_init_file = str(Path(__file__).resolve().with_name("tao.init"))
     tao = Tao("-init " + tao_init_file + " -noplot")
 
     # Define which attributes to print out for each element
@@ -351,10 +352,7 @@ def load_FACET():
 
         return E
 
-    try:
-        from . import lattice
-    except ImportError:
-        import lattice
+    from . import lattice
     lattice.add_marker = add_marker
     lattice.add_quad = add_quad
     lattice.add_drift = add_drift

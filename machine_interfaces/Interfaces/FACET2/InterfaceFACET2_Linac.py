@@ -1,23 +1,23 @@
 import RF_Track as rft
 import sys
 import numpy as np
-import time, math
-from AbstractMachineInterface import AbstractMachineInterface
+import time, math, os
+from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 # must run on SLAC controls network
 sys.path.append('/usr/local/facet/tools/python/F2_live_model/')
 sys.path.append('/usr/local/facet/tools/python/F2_pytools/')
 # sys.path.append('/home/fphysics/zack/workspace/F2_pytools/')
+_control_import_error = None
 try:
     from bmad import BmadLiveModel
     from epics import get_pv
     from F2_pytools.controls_jurisdiction import is_SLC
     from F2_pytools.f2bsaBuffer import make_bpm_buffer, get_bpmdata2
     from F2_pytools.mags import set_magnets
-except ImportError:
-    bmad, epics, F2_pytools  = None, None, None
+except ImportError as exc:
+    _control_import_error = str(exc)
 from traceback import print_exception
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "FACET2"))
-from FACET2 import FACET2
+from machine_interfaces.Interfaces.FACET2.FACET2 import FACET2
 
 '''
 TO IMPLEMENT!!!
@@ -43,11 +43,20 @@ def devname_swap_micro_primary(device):
     ds = device.split(':')
     return f'{ds[1]}:{ds[0]}:{ds[2]}'
 
+def get_unavailable_reason():
+    if _control_import_error:
+        return f"FACET2 live requires the SLAC BmadLiveModel and F2_pytools environment: {_control_import_error}"
+    return None
+
+
 class InterfaceFACET2_Linac(AbstractMachineInterface):
     def get_name(self):
         return 'FACET2_Linac'
 
     def __init__(self, nsamples=10, livemodel=False, tao_initfile=None):
+        reason = get_unavailable_reason()
+        if reason:
+            raise RuntimeError(reason)
         self.log = print
         self.lattice = FACET2.load_FACET()
         self.nsamples = nsamples

@@ -8,9 +8,10 @@ except ImportError:
     from PyQt5.QtGui import QPixmap
 
 import importlib
+import inspect
 import importlib.util
 from pathlib import Path
-from Interfaces.interface_setup import INTERFACE_SETUP
+from machine_interfaces.Interfaces.interface_setup import INTERFACE_SETUP
 
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "UI files" / "Assets"
@@ -58,29 +59,27 @@ def _branding_header(accelerator):
     header.addStretch()
     return header
 
-def get_available_interface_setup():
+def get_available_interface_setup(include_unavailable=False):
     available_setup = {}
     for machine_name, entries in INTERFACE_SETUP.items():
         available_entries = []
-        for entry in entries:
-            module_name = entry.get("module", "")
-            class_name = entry.get("class_name", "")
-            if not module_name:
-                continue
+        for original_entry in entries:
+            entry = dict(original_entry)
+            reason = None
             try:
-                module_spec = importlib.util.find_spec(module_name)
-            except (ModuleNotFoundError, ValueError, ImportError):
-                continue
-
-            if module_spec is None:
-                continue
-            try:
-                module = importlib.import_module(module_name)
-            except Exception:
-                continue
-            if not hasattr(module, class_name):
-                continue
-            available_entries.append(entry)
+                module = importlib.import_module(entry["module"])
+                cls = getattr(module, entry["class_name"])
+                if inspect.isabstract(cls):
+                    raise TypeError("Interface has unimplemented methods: " + ", ".join(sorted(cls.__abstractmethods__)))
+                check = getattr(module, "get_unavailable_reason", None)
+                if check is not None:
+                    reason = check()
+            except Exception as exc:
+                reason = str(exc)
+            if reason:
+                entry["unavailable_reason"] = reason
+            if not reason or include_unavailable:
+                available_entries.append(entry)
         if available_entries:
             available_setup[machine_name] = available_entries
     return available_setup
@@ -182,7 +181,7 @@ class InterfaceSelectionDialog(QDialog):
         self.selected_interface_name = None
         self.selected_acc = selected_acc
         self.go_back=False
-        self.available_interface_setup = get_available_interface_setup()
+        self.available_interface_setup = get_available_interface_setup(include_unavailable=True)
         self.are_more_machines = len(self.available_interface_setup.keys()) > 1
         self.entries = self.available_interface_setup.get(selected_acc, [])
 
@@ -210,6 +209,9 @@ class InterfaceSelectionDialog(QDialog):
             self.button_group.addButton(rb, index)
 
             radio_column.addWidget(rb)
+            reason = entry.get("unavailable_reason")
+            if reason:
+                rb.setEnabled(False)
 
         centered_radio_block = QHBoxLayout()
         centered_radio_block.addStretch()
@@ -218,8 +220,9 @@ class InterfaceSelectionDialog(QDialog):
 
         layout.addLayout(centered_radio_block)
 
-        if self.radio_buttons:
-            self.radio_buttons[0].setChecked(True)
+        enabled_buttons = [button for button in self.radio_buttons if button.isEnabled()]
+        if enabled_buttons:
+            enabled_buttons[0].setChecked(True)
 
         buttons = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.button_box = QDialogButtonBox(buttons)
@@ -230,6 +233,7 @@ class InterfaceSelectionDialog(QDialog):
             self.button_box.addButton(self.back_button,QDialogButtonBox.ButtonRole.ActionRole)
             self.back_button.clicked.connect(self._go_back)
         self.button_box.button(QDialogButtonBox.StandardButton.Ok).setDefault(True)
+        self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(bool(enabled_buttons))
         self.button_box.setFocusPolicy(_no_focus_policy())
         for button in self.button_box.buttons():
             button.setFocusPolicy(_no_focus_policy())
@@ -257,30 +261,23 @@ class InterfaceSelectionDialog(QDialog):
         class_name = selected_entry["class_name"]
         settings = dict(selected_entry.get("settings", {}))
 
-        # try:
-        #     module = importlib.import_module(module_name)
-        #     cls = getattr(module, class_name)
-        #     self.selected_interface = cls(**settings)
-        #
-        #     super().accept()
-        #
-        # except Exception as e:
-        #     QMessageBox.critical(self,"Interface unavailable",f"This interface is unavailable. {e}")
-
-
-        module = importlib.import_module(module_name)
-        cls = getattr(module, class_name)
-        self.selected_interface = cls(**settings)
+        try:
+            module = importlib.import_module(module_name)
+            cls = getattr(module, class_name)
+            self.selected_interface = cls(**settings)
+        except Exception as exc:
+            QMessageBox.critical(self, "Interface unavailable", f"{selected_entry['display_name']}: {exc}")
+            return
 
         super().accept()
 
 
     def _move_selection(self, step):
-        if not self.radio_buttons:
+        buttons = [button for button in self.radio_buttons if button.isEnabled()]
+        if not buttons:
             return
-        current_index = next((i for i, rb in enumerate(self.radio_buttons) if rb.isChecked()), 0)
-        new_index = (current_index + int(step)) % len(self.radio_buttons)
-        self.radio_buttons[new_index].setChecked(True)
+        current_index = next((i for i, button in enumerate(buttons) if button.isChecked()), 0)
+        buttons[(current_index + int(step)) % len(buttons)].setChecked(True)
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -311,7 +308,7 @@ class InterfaceSelectionDialog(QDialog):
 
 
 def choose_acc_and_interface(parent=None):
-    available_interface_setup = get_available_interface_setup()
+    available_interface_setup = get_available_interface_setup(include_unavailable=True)
     machines = sorted(available_interface_setup.keys())
     if not machines:
         QMessageBox.critical(parent, "Interface unavailable", "No available interfaces were found.")

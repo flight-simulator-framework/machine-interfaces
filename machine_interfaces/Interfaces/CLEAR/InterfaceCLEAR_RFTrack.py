@@ -2,8 +2,8 @@ import numpy as np
 import RF_Track as rft
 from scipy.optimize import minimize
 import os
-from Backend.State import State
-from AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Backend.State import State
+from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 
 class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
     def get_name(self):

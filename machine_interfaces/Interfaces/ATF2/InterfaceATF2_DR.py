@@ -1,6 +1,6 @@
 import numpy as np
 import time, math,os
-from AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 
 from epics import PV, ca, caget
 

@@ -18,6 +18,11 @@ def reject_large_outliers(values, factor=10.0):
 
     return arr
 
+def normalize_interface_id(interface_id):
+    if isinstance(interface_id, str) and interface_id.startswith("Interfaces."):
+        return "machine_interfaces." + interface_id
+    return interface_id
+
 class State:
     def __init__(self, sextupoles = None, correctors=None,bpms=None, icts=None,sequence=None,hcorrectors_names=None,vcorrectors_names=None,screens=None,quadrupoles=None,beam_settings=None,timestamp=None,filename=None,interface_id=None):
         if filename is not None:
@@ -149,7 +154,7 @@ class State:
         return self.beam_settings
 
     def get_interface_id(self):
-        return self.interface_id
+        return normalize_interface_id(self.interface_id)
 
     def get_timestamp(self):
         return self.timestamp

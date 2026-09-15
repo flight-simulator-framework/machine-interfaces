@@ -13,7 +13,7 @@ except ImportError:
         )
     from PyQt5.QtCore import QEvent, Qt
 import numpy as np
-from Backend.State import State
+from machine_interfaces.Backend.State import State, normalize_interface_id
 
 
 def _match_exactly():
@@ -880,7 +880,7 @@ class SaveOrLoad():
         except Exception as exc:
             QMessageBox.warning(self, "Load session", f"Couldn't read correction_settings.json: {exc}")
             return
-        saved_interface_id = settings.get("interface_id")
+        saved_interface_id = normalize_interface_id(settings.get("interface_id"))
         current_interface_id = f"{type(self.interface).__module__}.{type(self.interface).__name__}"
         if saved_interface_id is not None and saved_interface_id != current_interface_id:
             QMessageBox.warning(self, "Load session", "This session was created on a different interface/machine. Choose appropriate one or change interface.")

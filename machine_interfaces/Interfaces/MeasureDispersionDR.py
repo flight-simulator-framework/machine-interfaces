@@ -1,5 +1,5 @@
 from epics import PV, ca, caget
-from ATF2.InterfaceATF2_DR import InterfaceATF2_DR
+from machine_interfaces.Interfaces.ATF2.InterfaceATF2_DR import InterfaceATF2_DR
 import numpy as np
 import sys
 from matplotlib import pyplot as plt

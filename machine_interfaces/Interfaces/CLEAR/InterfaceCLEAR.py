@@ -1,6 +1,6 @@
-from CLEAR.Setup_files.CLEAR_BPM_getHV import baseline_correct, find_peak, threshold_integral, \
+from machine_interfaces.Interfaces.CLEAR.Setup_files.CLEAR_BPM_getHV import baseline_correct, find_peak, threshold_integral, \
     change_inverted_bpm_polarity
-from CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
+from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
 import sys, time, math, os, json
 from scipy.integrate import trapezoid
 from enum import Enum
@@ -13,11 +13,8 @@ except ImportError:
     pyda = None
     pyda_japc = None
 
-try:
-    from CLEAR import config
-except ImportError:
-    import config
-from AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Interfaces.CLEAR import config
+from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 
 class BPMsMode(Enum):
     peak = "peak"
@@ -34,11 +31,20 @@ scaling_factors = {
     "BPM0890": {"H": -0.391, "V": -0.417},
 }
 
+def get_unavailable_reason():
+    if pyda is None or pyda_japc is None:
+        return "CLEAR live requires the CERN pyda and pyda_japc environment."
+    return None
+
+
 class CLEAR_real_machine(AbstractMachineInterface):
     def get_name(self):
         return 'CLEAR'
 
     def __init__(self, nsamples=3, bg_shots=10.0 ):
+        reason = get_unavailable_reason()
+        if reason:
+            raise RuntimeError(reason)
         self.screen_backgrounds = {}
         self.chosen_ict = "CA.BCMTHZ/Acquisition#charge"
         self.steps_readback_position = 0.0
