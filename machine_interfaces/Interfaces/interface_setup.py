@@ -281,18 +281,19 @@ INTERFACE_SETUP = {
                     "test": {"label": "Test [deg]", "attribute": "rf_phase_test", "default": 145.0},
                 },
                 "intensity": {
-                    "label": "Change intensity",
-                    "tooltip": "Adds the specified number of UVATT2 steps to the current position for WFS. The captured position is restored afterward.",
-                    "test": {"label": "Test steps", "attribute": "uvatt2_test_steps", "default": 1000},
+                    "label": "Scale quadrupoles",
+                    "tooltip": "Enter the scaling factor of quadrupoles. It will scale the current quadrupole current to a scale * currents.",
+                    "test": {"label": "Scaling factor", "attribute": "quadrupole_scaling_factor", "default": 0.5},
                 },
             },
             "settings": {"nsamples":3},
             "units":
                 {
-                    "corrector_strength": "gauss*m",
+                    "corrector_strength": "A",
                     "quadrupole_strength": "A",
                     "bpm_position": "mm",
                     "sysid_corrector_kick": 1,
+                    "sysid_target_excursion": 5.0,
                     "bba_max_h_strength": 9.99,
                     "bba_max_v_strength": 9.99,
                 },

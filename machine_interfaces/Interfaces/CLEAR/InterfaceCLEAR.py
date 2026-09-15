@@ -66,6 +66,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
         self.rf_phase_nominal = 128 # degrees
         self.rf_phase_test = 108 # degrees
         self.uvatt2_test_steps = 1000
+        self.quadrupole_scaling_factor = 0.5
 
         # Bpms and correctors in beamline order
         sequence = [
@@ -167,6 +168,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
         self.start = self.tracking_interface.start
         self.end = self.tracking_interface.end
         self.bg_shots = int(bg_shots)
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def CamList(self):
         _JSON_PATH = os.path.join(os.path.dirname(__file__), 'cameras.json')
@@ -257,8 +259,10 @@ class CLEAR_real_machine(AbstractMachineInterface):
             f"(last readback={last_value})."
         )
 
-    def change_energy(self, scale=0.5):
-        scaled_optics_currents = np.asarray([10.0, 40.0, 10.0, 40.0, 60.0, 30.0, 40.0, 70.0, 40.0, 0.0, 0.0], dtype=float) * float(scale)
+    def change_intensity(self, scale=None):
+        if scale is None:
+            scale = self.quadrupole_scaling_factor
+        scaled_optics_currents = self.initial_quad_currents * float(scale)
         for attempt in range(1, 10):
             if self.set_quadrupoles(self.quadrupoles, scaled_optics_currents):
                 return True
@@ -266,10 +270,10 @@ class CLEAR_real_machine(AbstractMachineInterface):
                 self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
         raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 3 attempts.")
 
-    def reset_energy(self):
-        return self.change_energy(scale=1.0)
+    def reset_intensity(self):
+        return self.change_intensity(scale=1.0)
 
-    def change_intensity(self):
+    def change_energy(self):
         # this is not a charge change, but rf phase - based change in the energy, probably if you would
         # use both scaling quadrupoles and this method, the correction would be even better
         if np.isclose(float(self.rf_phase_test), float(self.rf_phase_nominal)):
@@ -280,7 +284,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
         self.log(f"Value after changing energy: {new_energy}")
         return new_energy
 
-    def reset_intensity(self):
+    def reset_energy(self):
         print(f"Resetting energy to {self.rf_phase_nominal}...")
         after_energy_reset = self._set_and_verify('CK.LL-MKS11/Setting', 'PhaseSh_SP', float(self.rf_phase_nominal), description="RF phase (nominal)")
         print(f"Energy has been reset to {after_energy_reset}.")
