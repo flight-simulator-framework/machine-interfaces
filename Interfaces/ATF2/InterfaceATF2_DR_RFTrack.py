@@ -1,0 +1,535 @@
+import RF_Track as rft
+import numpy as np
+import time,os
+from Backend.LogConsole import LogConsole
+from datetime import datetime
+from AbstractMachineInterface import AbstractMachineInterface
+
+class InterfaceATF2_DR_RFTrack(AbstractMachineInterface):
+
+    def get_name(self):
+        return 'ATF2_DR_RFT'
+
+    def __init__(self, population=2e10, jitter=0.0, bpm_resolution=0.0, nsamples=1):
+        self.log = print
+        self.twiss_path=os.path.join(os.path.dirname(__file__),'DR_ATF2','ATF_DR_twiss_file.tws')
+        self.lattice = rft.Lattice(self.twiss_path)
+        for rf in self.lattice.get_rf_elements():
+            rf.replace_with(rft.Drift(rf.get_length()))
+        for i,q in enumerate(self.lattice.get_quadrupoles()):
+            if i%3 == 0:
+                cx, cy = rft.Corrector(), rft.Corrector()
+                icorr = int(i/3)
+                cx.set_name(f'ZH{icorr}R')
+                cy.set_name(f'ZV{icorr}R')
+                q.insert(cx)
+                q.insert(cy)
+        self.lattice.set_bpm_resolution(bpm_resolution)
+        self.sequence = [ e.get_name() for e in self.lattice['*']]
+        self.bpms = [ e.get_name() for e in self.lattice.get_bpms()]
+        self.corrs = [ e.get_name() for e in self.lattice.get_correctors()]
+        self.screens = []
+        self.quadrupoles = list(dict.fromkeys(e.get_name() for e in self.lattice.get_quadrupoles()))
+        self.Pref = 1.2999999e3 # 1.3 GeV/c
+        self.population = population
+        self.jitter = jitter
+        self.nsamples = nsamples
+        self.dfs_test_energy = 0.98
+        self.wfs_test_charge = 0.90
+        self._beam_mode = "nominal"
+        self.Q=-1
+        self.electronmass = rft.electronmass
+        self.__setup_beam0()
+        self.__track_bunch()
+        self._saved_sextupoles_state = None
+        self.sextupoles = self._get_element_names_from_twiss_types({"SEXTUPOLE"})
+        self.machine_name = "ATF2"
+        self.lattice.align_elements()
+        '''Uncomment lines below to scatter elements in the lattice.'''
+        # self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
+        # self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0, 0, 0, 0, 'center')
+
+
+    def _get_element_names_from_twiss_types(self, allowed_types): # because rf track doesn't have get sextupoles
+        with open(self.twiss_path, "r") as file:
+            lines = [line.strip() for line in file if line.strip()]
+
+        header_idx = None
+        format_idx = None
+        name_column = None
+        type_column = None
+
+        for i, line in enumerate(lines):
+            if not line.startswith("*"):
+                continue
+
+            columns = line.lstrip("*").split()
+            if "NAME" not in columns:
+                continue
+
+            type_col_name = None
+            if "KEYWORD" in columns:
+                type_col_name = "KEYWORD"
+            elif "TYPE" in columns:
+                type_col_name = "TYPE"
+            else:
+                continue
+
+            header_idx = i
+            name_column = columns.index("NAME")
+            type_column = columns.index(type_col_name)
+
+            for j in range(i + 1, len(lines)):
+                if lines[j].startswith("$"):
+                    format_idx = j
+                    break
+            break
+
+        if header_idx is None or format_idx is None:
+            return []
+
+        names = []
+        seen = set()
+
+        for line in lines[format_idx + 1:]:
+            if line.startswith("@") or line.startswith("*") or line.startswith("$"):
+                continue
+
+            data = line.split()
+            if len(data) <= max(name_column, type_column):
+                continue
+
+            elem_name = data[name_column].strip('"')
+            elem_type = data[type_column].strip('"').upper()
+
+            if elem_type in allowed_types and elem_name not in seen:
+                names.append(elem_name)
+                seen.add(elem_name)
+
+        return names
+
+    def log_messages(self,console):
+        self.log=console or print
+
+    def __setup_beam0(self):
+        T = rft.Bunch6d_twiss()
+        T.emitt_x = 5.2 # mm.mrad normalised emittance
+        T.emitt_y = 0.03 # mm.mrad
+        T.alpha_x = -4.46977512
+        T.alpha_y = 1.286939438
+        T.beta_x = 5.329581905 # m
+        T.beta_y = 1.710527297 # m
+        T.disp_x = 0.1327935005 # m
+        T.disp_px = 0.1112759177
+        T.sigma_t = 8 # mm/c
+        T.sigma_pt = 0.8 # permille
+        Nparticles = 10000 # number of macroparticles
+        self.B0 = rft.Bunch6d_QR(rft.electronmass, self.population, -1, self.Pref, T, Nparticles)
+        
+    def __setup_beam1(self):
+        # Beam for DFS - Reduced energy
+        Pref = self.dfs_test_energy * self.Pref
+        T = rft.Bunch6d_twiss()
+        T.emitt_x = 5.2 # mm.mrad normalised emittance
+        T.emitt_y = 0.03 # mm.mrad
+        T.alpha_x = -4.46977512
+        T.alpha_y = 1.286939438
+        T.beta_x = 5.329581905 # m
+        T.beta_y = 1.710527297 # m
+        T.disp_x = 0.1327935005 # m
+        T.disp_px = 0.1112759177
+        T.sigma_t = 8 # mm/c
+        T.sigma_pt = 0.8 # permille
+        Nparticles = 10000 # number of macroparticles
+        self.B0 = rft.Bunch6d_QR(rft.electronmass, self.population, -1, Pref, T, Nparticles)
+
+    def __setup_beam2(self):
+        # Beam for WFS - Reduced bunch charge
+        population = self.wfs_test_charge * self.population
+        #population = 0.90 * self.population # 90% of nominal charge
+        T = rft.Bunch6d_twiss()
+        T.emitt_x = 5.2 # mm.mrad normalised emittance
+        T.emitt_y = 0.03 # mm.mrad
+        T.alpha_x = -4.46977512
+        T.alpha_y = 1.286939438
+        T.beta_x = 5.329581905 # m
+        T.beta_y = 1.710527297 # m
+        T.disp_x = 0.1327935005 # m
+        T.disp_px = 0.1112759177
+        T.sigma_t = 8 # mm/c
+        T.sigma_pt = 0.8 # permille
+        Nparticles = 10000 # number of macroparticles
+        self.B0 = rft.Bunch6d_QR(rft.electronmass, population, -1, self.Pref, T, Nparticles)
+
+    def __track_bunch(self):
+        I0 = self.B0.get_info()
+        dx = self.jitter*I0.sigma_x
+        dy = self.jitter*I0.sigma_y
+        dz, roll, dt = 0.0, 0.0, 0.0
+        pitch = self.jitter*I0.sigma_py
+        yaw   = self.jitter*I0.sigma_px
+        B0_offset = self.B0.displaced(dx, dy, dz, dt, roll, pitch, yaw)
+        self.lattice.track(B0_offset)
+        I=B0_offset.get_info()
+        self.log("Emittance after tracking:")
+        self.log(f"εx = {I.emitt_x} [mm.mrad]")
+        self.log(f"εy = {I.emitt_y} [mm.mrad]")
+        self.log(f"εz = {I.emitt_z} [mm.permille]")
+
+    def get_beam_factors(self):
+        gamma_rel = np.sqrt((self.Pref / self.electronmass) ** 2 + 1.0)
+        beta_rel = np.sqrt(1.0 - 1.0 / gamma_rel ** 2)
+        beta_gamma = gamma_rel * beta_rel
+        if not np.isfinite(beta_gamma) or beta_gamma <= 0:
+            raise RuntimeError("Invalid beam factors")
+        return gamma_rel, beta_rel, beta_gamma
+
+    def change_energy(self):
+        self.__setup_beam1()
+        self.__track_bunch()
+        self._beam_mode = "energy_changed"
+        dP_P = self.dfs_test_energy - 1.0
+        return dP_P
+
+    def reset_energy(self):
+        self.__setup_beam0()
+        self.__track_bunch()
+        self._beam_mode = "nominal"
+
+    def change_intensity(self): #reduced charge
+        self.__setup_beam2()
+        self.__track_bunch()
+        self._beam_mode = "intensity_changed"
+
+    def reset_intensity(self):
+        self.__setup_beam0()
+        self.__track_bunch()
+        self._beam_mode = "nominal"
+
+    def get_sequence(self):
+        return self.sequence
+
+    def get_hcorrectors_names(self):
+        return [string for string in self.corrs if (string.lower().startswith('zh')) or (string.lower().startswith('zx'))]
+
+    def get_vcorrectors_names(self):
+        return [string for string in self.corrs if string.lower().startswith('zv')]
+
+    def get_elements_indices(self, names):
+        if isinstance(names, str):
+            names = [names]
+        name_to_index = {string: index for index, string in enumerate(self.sequence)}
+        return [name_to_index.get(name, np.nan) for name in names]
+
+    def get_target_dispersion(self, names=None):
+        if names is None:
+            names = self.bpms
+        if isinstance(names, str):
+            names = [names]
+        with open(self.twiss_path, "r") as file:
+            lines = [line.strip() for line in file if line.strip()]
+        star_symbol = next(i for i, line in enumerate(lines) if line.startswith("*"))
+        dollar_sign = next(i for i, line in enumerate(lines) if line.startswith("$") and i > star_symbol)
+        columns = lines[star_symbol].lstrip("*").split()
+        try:
+            dx_column = columns.index("DX")
+            dy_column = columns.index("DY")
+            name_column = columns.index("NAME")
+        except ValueError:
+            raise RuntimeError("There are no DX, DY or NAME columns in the twiss file")
+        disp_values = {}
+        for line in lines[dollar_sign + 1:]:
+            data = line.split()
+            if len(data) <= max(dx_column, dy_column, name_column):
+                continue
+            bpm_name = data[name_column].strip('"')
+            try:
+                disp_values[bpm_name] = (
+                    float(data[dx_column]),
+                    float(data[dy_column]),
+                )
+            except ValueError:
+                continue
+        target_disp_x, target_disp_y = [], []
+        for bpm in names:
+            dx, dy = disp_values.get(bpm, (float("nan"), float("nan")))
+            target_disp_x.append(dx)
+            target_disp_y.append(dy)
+        return target_disp_x, target_disp_y
+
+    def get_icts(self, names=None):
+        self.log("Reading ict's...")
+        icts = {
+            "names": self.bpms,
+            "charge": np.array([bpm.get_total_charge() for bpm in self.lattice.get_bpms()])
+        }
+        if isinstance(names, str):
+            names = [names]
+        if names is not None:
+            idx = [i for i, s in enumerate(icts["names"]) if s in names]
+            icts = {
+                "names": [icts["names"][i] for i in idx],
+                "charge": np.asarray(icts["charge"])[idx],
+            }
+
+        return icts
+
+    def get_correctors(self, names=None):
+        self.log("Reading correctors' strengths...")
+        bdes = np.zeros(len(self.corrs))
+        for i, corrector in enumerate(self.corrs):
+            if corrector[:2] == "ZH" or corrector[:2] == "ZX":
+                bdes[i] = self.lattice[corrector].get_strength()[0] * 10
+            elif corrector[:2] == "ZV":
+                bdes[i] = self.lattice[corrector].get_strength()[1] * 10
+
+        correctors = {"names": self.corrs, "bdes": bdes, "bact": bdes.copy()}
+
+        if isinstance(names, str):
+            names = [names]
+        if names is not None:
+            idx = [i for i, s in enumerate(correctors["names"]) if s in names]
+            correctors = {
+                "names": [correctors["names"][i] for i in idx],
+                "bdes": np.asarray(correctors["bdes"])[idx],
+                "bact": np.asarray(correctors["bact"])[idx],
+            }
+
+        return correctors
+
+    def get_bpms(self, names=None):
+        self.log('Reading bpms...')
+        x = np.zeros((self.nsamples, len(self.bpms)))
+        y = np.zeros(x.shape)
+        tmit = np.zeros(x.shape)
+
+        for i in range(self.nsamples):
+            for j, bpm in enumerate(self.bpms):
+                b = self.lattice[bpm]
+                reading = b.get_reading()
+                x[i, j] = reading[0]
+                y[i, j] = reading[1]
+                tmit[i, j] = b.get_total_charge()
+
+        bpms = {"names": self.bpms, "x": x, "y": y, "tmit": tmit}
+
+        if isinstance(names, str):
+            names = [names]
+        if names is not None:
+            idx = [i for i, s in enumerate(bpms["names"]) if s in names]
+            bpms = {
+                "names": [bpms["names"][i] for i in idx],
+                "x": np.asarray(bpms["x"])[:, idx],
+                "y": np.asarray(bpms["y"])[:, idx],
+                "tmit": np.asarray(bpms["tmit"])[:, idx],
+            }
+
+        return bpms
+
+    def get_quadrupoles(self, names=None):
+        self.log("Reading quadrupoles' strengths...")
+        bdes = np.zeros(len(self.quadrupoles), dtype=float)
+
+        for i, quadrupole_name in enumerate(self.quadrupoles):
+            elements = self.lattice[quadrupole_name]
+            if not isinstance(elements, list):
+                elements = [elements]
+
+            k1l_values = []
+            for element in elements:
+                try:
+                    strength = element.get_K1(self.Pref / self.Q)
+                except Exception:
+                    continue
+                if isinstance(strength, (list, tuple, np.ndarray)):
+                    if len(strength) > 0:
+                        k1l_values.append(float(strength[0]))
+                else:
+                    k1l_values.append(float(strength))
+
+            bdes[i] = k1l_values[0] if k1l_values else 0.0
+
+        quadrupoles = {"names": self.quadrupoles, "bdes": bdes, "bact": bdes.copy()}
+
+        if isinstance(names, str):
+            names = [names]
+        if names is not None:
+            idx = [i for i, s in enumerate(quadrupoles["names"]) if s in names]
+            quadrupoles = {
+                "names": [quadrupoles["names"][i] for i in idx],
+                "bdes": np.asarray(quadrupoles["bdes"])[idx],
+                "bact": np.asarray(quadrupoles["bact"])[idx],
+            }
+
+        return quadrupoles
+
+    def set_quadrupoles(self, names, values_range, track = True):
+        if isinstance(names, str):
+            names = [names]
+        if not (isinstance(values_range, (list, tuple, np.ndarray))):
+            values_range = [values_range]
+        for quadrupole_name, value in zip(names, values_range):
+            elements = self.lattice[quadrupole_name]
+            if not isinstance(elements, (list)): elements = [elements]
+            for element in elements:
+                element.set_K1(self.Pref / self.Q,float(value))
+        if track:
+            self.__track_bunch()
+
+    def set_correctors(self, names, corr_vals):
+        if isinstance(names, str):
+            names = [names]
+        if not isinstance(corr_vals, (list, tuple, np.ndarray)):
+            corr_vals = [corr_vals]
+        for corr, val in zip(names, corr_vals):
+            if corr[:2] == "ZH" or corr[:2] == "ZX":
+                self.lattice[corr].set_strength(val / 10, 0.0)
+            elif corr[:2] == "ZV":
+                self.lattice[corr].set_strength(0.0, val / 10)
+        self.__track_bunch()
+
+    def vary_correctors(self, names, corr_vals):
+        if isinstance(names, str):
+            names = [names]
+        if not isinstance(corr_vals, (list, tuple, np.ndarray)):
+            corr_vals = [corr_vals]
+        for corr, val in zip(names, corr_vals):
+            if corr[:2] == "ZH" or corr[:2] == "ZX":
+                self.lattice[corr].vary_strength(val / 10, 0.0)
+            elif corr[:2] == "ZV":
+                self.lattice[corr].vary_strength(0.0, val / 10)
+        self.__track_bunch()
+
+    def get_sextupoles(self, names = None):
+        self.log("Reading sextupoles' strengths...")
+        bdes = np.zeros(len(self.sextupoles), dtype=float)
+
+        for i, sextupole_name in enumerate(self.sextupoles):
+            elements = self.lattice[sextupole_name]
+            if not isinstance(elements, list):
+                elements = [elements]
+
+            k2_values = []
+            for element in elements:
+                try:
+                    strength = element.get_strengths()
+                except Exception:
+                    continue
+                strengths = np.asarray(strength, dtype = complex ).ravel()
+                if strengths.size >= 3:
+                    k2_values.append(float(np.real(strengths[2])))
+                else:
+                    k2_values.append(0.0)
+            if len(k2_values) > 1 and not np.allclose(k2_values, k2_values[0], rtol = 0.0, atol = 1e-12):
+                self.log(f"Parts of sextupole {sextupole_name} are not consistent.")
+
+            bdes[i] = k2_values[0] if k2_values else 0.0
+
+        sextupoles = {"names": self.sextupoles, "bdes": bdes, "bact": bdes.copy()}
+
+        if isinstance(names, str):
+            names = [names]
+        if names is not None:
+            idx = [i for i, s in enumerate(sextupoles["names"]) if s in names]
+            sextupoles = {
+                "names": [sextupoles["names"][i] for i in idx],
+                "bdes": np.asarray(sextupoles["bdes"])[idx],
+                "bact": np.asarray(sextupoles["bact"])[idx],
+            }
+        return sextupoles
+
+    def set_sextupoles(self, names, values_range):
+        if isinstance(names, str):
+            names = [names]
+        if not (isinstance(values_range, (list, tuple, np.ndarray))):
+            values_range = [values_range]
+        for sextupole_name, value in zip(names, values_range):
+            elements = self.lattice[sextupole_name]
+            if not isinstance(elements, (list)): elements = [elements]
+            for element in elements:
+                try:
+                    strengths = element.get_strengths()
+                except Exception:
+                    continue
+                strengths = np.asarray(strengths, dtype = complex).ravel()
+
+                if strengths.size < 3:
+                    padded = np.zeros(3, dtype = complex)
+                    padded[:strengths.size] = strengths
+                    strengths = padded
+                strengths[2] = complex(float(value), 0.0)
+                element.set_strengths(strengths)
+        self.__track_bunch()
+
+    def _get_optics_from_twiss_file(self,names=None):
+        with open(self.twiss_path, "r") as file:
+            lines = [line.strip() for line in file if line.strip()]
+
+        star_symbol = next(i for i, line in enumerate(lines) if line.startswith("*"))
+        dollar_sign = next(i for i, line in enumerate(lines) if line.startswith("$") and i > star_symbol)
+        columns = lines[star_symbol].lstrip("*").split()
+
+        cols=["NAME","S","BETX","ALFX","BETY","ALFY","MUX","MUY","L"]
+        index={}
+        for col in cols:
+            try:
+                index[col]=columns.index(col)
+            except ValueError:
+                raise RuntimeError(f"Column {col} not found in twiss file")
+        result={k: [] for k in cols}
+
+        duplicated={}
+        for line in lines[dollar_sign + 1:]:
+            data = line.split()
+            if len(data) <= max(index.values()):  # if a line has less column than needed, it is omitted
+                continue
+            name = data[index["NAME"]].strip('"')
+            result["NAME"].append(name)
+
+            if name not in duplicated:
+                duplicated[name]={col:[] for col in cols[1:]}
+            for col in cols[1:]:
+                try:
+                    duplicated[name][col].append(float(data[index[col]]))
+                except ValueError:
+                    duplicated[name][col].append(float("nan"))
+        result_names=list(duplicated.keys())
+        result={col:[] for col in cols[1:]}
+
+        for name in result_names:
+            vals=duplicated[name]
+            result["S"].append(vals["S"][0])
+            result["BETX"].append(vals["BETX"][0])
+            result["ALFX"].append(vals["ALFX"][0])
+            result["MUX"].append(vals["MUX"][0])
+            result["L"].append(sum(vals["L"]))
+            result["BETY"].append(vals["BETY"][0])
+            result["ALFY"].append(vals["ALFY"][0])
+            result["MUY"].append(vals["MUY"][0])
+        return {
+            "names":result_names,
+            "S": np.array(result["S"]),
+            "betx": np.array(result["BETX"]),
+            "alfx": np.array(result["ALFX"]),
+            "bety": np.array(result["BETY"]),
+            "alfy": np.array(result["ALFY"]),
+            "mux": np.array(result["MUX"]),
+            "muy": np.array(result["MUY"]),
+            "L": np.array(result["L"]),
+        }
+
+    def get_twiss_at_element(self,name):
+        optics=self._get_optics_from_twiss_file()
+        names=list(optics["names"])
+        if name not in names:
+            raise ValueError(f"Element {name} not found in twiss file")
+        i=names.index(name)
+        return {
+            "name": names[i],
+            "S": float(optics["S"][i]),
+            "betx": float(optics["betx"][i]),
+            "alfx": float(optics["alfx"][i]),
+            "bety": float(optics["bety"][i]),
+            "alfy": float(optics["alfy"][i]),
+
+        }

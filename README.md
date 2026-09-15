@@ -1,93 +1,148 @@
-# Machine interfaces
+# Machine Interfaces
+
+Connect Flight Simulator applications to an accelerator control system or a simulation. An interface translates machine-specific commands and measurements into the common operations used by the applications: reading BPMs and magnet settings, changing actuators, recording machine states and controlling beam energy or intensity.
+
+The repository contains interfaces for ATF2, CLEAR and FACET2, including live-machine and RFTrack implementations.
 
 
+The available choices are registered in `Interfaces/interface_setup.py`; `Backend/SelectInterface.py` provides the selection window.
 
-## Getting started
+## Connecting a new machine
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+The virtual class is `AbstractMachineInterface`; `State` is the data container shared by acquisition, response-matrix calculation, correction and emittance applications, while the machine interface itself is used for communication with the machine (simulated or real).
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Required subclass methods
 
-## Add your files
+These ten methods have `@abstractmethod` in the current base class and must be implemented before Python will instantiate a subclass.
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+| Method | Required behavior |
+|---|---|
+| `get_name()` | Return the machine/backend name used in application labels and output-directory names. |
+| `get_sequence()` | Return the beamline-ordered list of element names. Names used in BPM/corrector inventories must be consistent with it. Matrix/correction code uses sequence order and `list.index`. |
+| `get_correctors(names=None)` | Return corrector names, desired values and actual/readback values. |
+| `get_bpms(names=None)` | Return BPM names and two-dimensional position/intensity arrays. |
+| `get_icts(names=None)` | Return ICT names and charge readings. An empty correctly shaped result can represent no ICTs. |
+| `set_correctors(names, values)` | Set the requested absolute corrector values using the backend's documented units and synchronization.|
+| `change_energy()` | Apply the configured DFS test energy condition. |
+| `reset_energy()` | Restore the backend's nominal/captured energy condition. |
+| `change_intensity()` | Apply the configured WFS test intensity condition. |
+| `reset_intensity()` | Restore the backend's nominal/captured intensity condition. |
 
+The following two methods are not declared abstract, but the inherited `get_state()` calls them and a usable subclass must provide them:
+
+- `get_hcorrectors_names()` returns the horizontal corrector names.
+- `get_vcorrectors_names()` returns the vertical corrector names.
+
+## Data dictionaries
+
+All fields must describe the same devices in the same order. `names` is an ordered sequence of device names. Convert scalar hardware responses to arrays with the expected dimensions, including when only one device or one sample is selected.
+
+| Device type | Fields | Shapes and meaning                                                                                                                                                                                                           |
+|-------------|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Correctors  | `names`, `bdes`, `bact` | `N` names and two arrays of length `N`; `bdes`: desired/setpoint, `bact`: actual/readback strengths.                                                                                                                         |
+| BPMs        | `names`, `x`, `y`, `tmit` | `N` names; arrays shaped `(nsamples, N)`. Positions would be best in mm.                                                                                                                                                     |
+| ICTs        | `names`, `charge` | `N` names and charge array of length `N`.                                                                                                                                                                                    |
+| Quadrupoles | `names`, `bdes`, `bact` | Existing mover interfaces add position/roll arrays such as `xdes`, `xact`, `ydes`, `yact`, `rolldes`, `rollact`.                                                                                                             |
+| Sextupoles  | `names`, `bdes`, `bact` | Same as quadrupoles.                                                                                                                                                                                                         |
+| Screens     | `names`, `hpixel`, `vpixel`, `x`, `y`, `sigx`, `sigy`, `sum`, `hedges`, `vedges`, `images`, `S` | Scalar arrays of length `N`; one image and horizontal/vertical edge array per screen. `x`/`y` are centroids, `sigx`/`sigy` RMS sizes, `sum` intensity, and `S` longitudinal position. Edge and image orientation must agree. |
+
+The base supplies empty quadrupole and sextupole dictionaries with empty arrays. Its empty screen dictionary supplies every listed key, using empty arrays or lists as appropriate. It does not supply default corrector, BPM or ICT reads.
+
+## Methods required by each application
+
+### Response matrix
+
+`ComputeResponseMatrix_GUI.py`, its QM variant and the random-excitation variant calculate matrices from saved acquisition files. They do not require a live machine interface merely to load and process existing data. They require the shared State format and the relevant response data.
+
+For the paired-excitation logic, data filenames are `DATA_<corrector>_p<index>.pkl` (positive corrector kick) and `DATA_<corrector>_m<index>.pkl` (negative corrector kick).
+
+The system-identification application below produces these machine snapshots.
+
+### System identification
+
+Corrector SysID needs:
+
+* `set_correctors()` and `get_correctors()` - in order to perform corrector kicks and acquiring readbacks.
+
+
+* `get_bpms()` returns BPMs readbacks
+
+
+* `get_hcorrectors_names()` and `get_vcorrectors_names()` - return list of names with horizontal and vertical correctors
+
+
+* `change_energy()`, `reset_energy()` - ways to change and reset energy for off-energy response matrix acquisition
+
+
+* `change_intensity()`, `reset_intensity()` - ways to change and reset bunch charge for changed intensity response matrix acquisition
+
+
+* `get_icts()` - returns transmission evolution in order to track if the transmission is not lost
+
+QM SysID additionally needs `get_quadrupole_movers_names()`, `get_quadrupoles(names)` with mover readback/setpoint arrays, and `apply_qmag_xyroll(names, x, y, roll, wait=True)`.
+
+### Beam-based alignment
+
+Corrector BBA needs the same methods as `System Identification`, ordered sequence, `get_target_dispersion` in case of target-dispersion correction (can be set to 0 in case of Dispersion Free Steering).
+
+Optional QM BBA additionally uses mover names, mover state and `apply_qmag_xyroll(...)`. Some plots optionally use `get_twiss_at_screen`.
+
+### Orbit bump
+
+This application needs the same methods as `System Identification`.
+
+
+### Emittance measurement
+
+Emittance measurement needs:
+
+* `get_quadrupoles()`, `set_quadrupoles()` - used mainly for quadrupole scan. It is also useful when downloading the status of the machine to update the RF - Track model.
+* `get_screens()` - used as well during quadrupole scan. They record images, coupling, beam positions and other quantities.
+And, the ordered device sequence as well.
+* `insert_screen()`, `extract_screen()` - methods to directly call to interact with screens moving in and out of the beamline.
+
+Scan ranges are entered in amperes. If a quadrupole's `value_unit` is not `A`, the scan requires `current_to_k1l(quad_name, current_A)` for conversion. `k1l_to_current(quad_name, value)` is used for displayed/stored current values when available.
+
+
+## Next steps to create a new machine interface
+
+The first step is modifying the `Interfaces/interface_setup.py`, grouped by accelerator.
+
+An example of an entry is:
+
+```python
+{
+    "display_name": "New accelerator",
+    "module": "Interfaces.NewAccelerator.InterfaceNewAccelerator",
+    "class_name": "InterfaceNewAccelerator",
+    "settings": {"nsamples": 3},
+    "units": {
+        "corrector_strength": "A",
+        "bpm_position": "mm",
+        "sysid_corrector_kick": 0.01
+    }
+}
 ```
-cd existing_repo
-git remote add origin https://gitlab.cern.ch/flight-simulator/machine-interfaces.git
-git branch -M master
-git push -uf origin master
-```
 
-## Integrate with your tools
+The values are an example structure only; choose real units and appropriate kicks for the new machine. The module path must match the implementation.
 
-* [Set up project integrations](https://gitlab.cern.ch/flight-simulator/machine-interfaces/-/settings/integrations)
+1. Provide device inventories, beamline order, acquisition methods, corrector setters and the required energy/intensity methods. Follow the documented data shapes, device ordering and units.
+2. Register the interface and its constructor settings in `Interfaces/interface_setup.py` so that it appears in the selector.
 
-## Collaborate with your team
+## Shared application utilities
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+This repository also provides the common modules used by the applications:
 
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- `Backend/State.py`: machine snapshots, device selection, orbit summaries and snapshot persistence.
+- `Backend/SaveOrLoad.py`: saving and loading device selections and measurement sessions.
+- `Backend/LogConsole.py`: application log dialog.
+- `Backend/ActuatorMode.py`: corrector and quadrupole-mover modes.
+- `Knobs/jitter_subtraction.py`: estimation and subtraction of correlated beam motion using upstream BPMs.
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Use Python 3.11 or newer and Poetry 2 or newer. From the repository directory, install the dependencies:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+poetry install
+```
