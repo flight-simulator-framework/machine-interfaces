@@ -275,9 +275,7 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             for key, attribute in attributes.items():
                 values = np.asarray(getattr(device, attribute), dtype=float)
                 if values.shape != (len(self.bpm_readout_names),):
-                    raise ValueError(
-                        f"{attribute}: unexpected BPM array shape {values.shape}"
-                    )
+                    raise ValueError(f"{attribute}: unexpected BPM array shape {values.shape}") # 3 samples,
                 data[key][sample] = values[indices]
 
             if sample < self.nsamples - 1:
