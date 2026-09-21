@@ -159,8 +159,8 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
 
     def change_intensity(self, delta=None):
         delta = self.intensity_delta if delta is None else delta
-        if delta is None or not np.isfinite(delta) or abs(delta) >= 10:
-            raise ValueError("Set intensity_delta in V, with abs(delta) < 10 V.")
+        if delta is None or not np.isfinite(delta):
+            raise ValueError("Set intensity_delta in V.")
         attribute = tango.AttributeProxy('elin/beam/run/gridv')
         if self.initial_gridv is None:
             self.initial_gridv = float(attribute.read().w_value)
