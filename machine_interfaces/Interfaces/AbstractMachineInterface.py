@@ -76,6 +76,9 @@ class AbstractMachineInterface(ABC):
         name = str(name)
         return name if name in map(str, candidates) else None
 
+    def get_beam_evolution(self, quad_name, screens, quad_setting, quad_value_unit, beam_parameters):
+        raise NotImplementedError(f"{self.get_name()} does not implement get_beam_evolution")
+
     def get_target_dispersion(self, names=None):
         if names is None:
             names = self.bpms

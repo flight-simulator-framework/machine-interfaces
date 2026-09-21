@@ -33,7 +33,7 @@ scaling_factors = {
 
 def get_unavailable_reason():
     if pyda is None or pyda_japc is None:
-        return "CLEAR live requires the CERN pyda and pyda_japc environment."
+        return "CLEAR interface requires the CERN pyda and pyda_japc environment."
     return None
 
 
@@ -243,8 +243,6 @@ class CLEAR_real_machine(AbstractMachineInterface):
             return float(default)
 
     def _set_and_verify(self, property_address, field, target, *, context=None, tolerance=0.1, timeout=10.0, retries=3, description=None):
-        # PyDA accepts the empty selector for non-PPM properties, but not None.
-        # The RF-phase and UVATT2 callers intentionally omit a context.
         context = self.context_empty if context is None else context
         desc = description or f"{property_address}#{field}"
         last_value = None
@@ -877,10 +875,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
     def restore_quadrupoles_state(self, state):
         quadrupoles = state.get_quadrupoles()
         if quadrupoles.get("value_unit") != "A":
-            raise ValueError(
-                "Refusing to restore CLEAR quadrupoles from a legacy state without "
-                "current units. Its bdes values may be K1L, not amperes."
-            )
+            raise ValueError("The application is trying to restore quadrupoles to a different unit than an Ampere.")
         super().restore_quadrupoles_state(state)
 
     def match_screen_name(self, name, candidates):

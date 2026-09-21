@@ -424,6 +424,10 @@ class SaveOrLoad():
             "screens": screens if screens is not None else [],
             "quad_name": quad_selected if quad_selected else None,
         }
+        if saved_scan_settings:
+            for key in ("initial_quadrupole_setting", "quad_setting_values", "quad_value_unit"):
+                if key in saved_scan_settings:
+                    self.emittance_settings[key] = saved_scan_settings[key]
 
         self.steps_settings.setValue(int(scan_steps))
         self.meas_per_step.setValue(int(nshots))
@@ -499,7 +503,7 @@ class SaveOrLoad():
             if self.session is None:
                 QMessageBox.warning(self,"Load session settings", "Could not reconstruct the scan session from the saved State files.")
                 return
-            if not saved_bounds or "quad_k1l_0" not in saved_bounds:
+            if not saved_bounds or "quad_setting_0" not in saved_bounds:
                 self._set_default_quad_strength_bounds_from_session(self.session)
 
             self._refresh_plot_comboboxes_from_session(self.session)
@@ -675,8 +679,8 @@ class SaveOrLoad():
                 "nscreens": session.get("nscreens", len(session.get("screens", []))),
                 "is_quad_scan": session.get("is_quad_scan"),
                 "reference_screen": session.get("reference_screen"),
-                "K1L_0": session.get("K1L_0"),
-                "K1L_values": session.get("K1L_values"),
+                "initial_quadrupole_setting": session.get("initial_quadrupole_setting"),
+                "quad_setting_values": np.asarray(session.get("quad_setting_values", []), dtype=float).tolist(),
                 "current_values": session.get("current_values"),
                 "quad_value_unit": session.get("quad_value_unit"),
                 "sigma_unit": session.get("sigma_unit", "mm"),

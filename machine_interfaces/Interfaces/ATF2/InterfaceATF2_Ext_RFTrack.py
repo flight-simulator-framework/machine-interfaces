@@ -482,7 +482,7 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
             if not isinstance(elements, list):
                 elements = [elements]
 
-            k1l_values = []
+            quad_setting_values = []
             for element in elements:
                 try:
                     strength = element.get_K1L(self.Pref / self.Q)*2
@@ -490,11 +490,11 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
                     continue
                 if isinstance(strength, (list, tuple, np.ndarray)):
                     if len(strength) > 0:
-                        k1l_values.append(float(strength[0]))
+                        quad_setting_values.append(float(strength[0]))
                 else:
-                    k1l_values.append(float(strength))
+                    quad_setting_values.append(float(strength))
 
-            bdes[i] = k1l_values[0] if k1l_values else 0.0
+            bdes[i] = quad_setting_values[0] if quad_setting_values else 0.0
 
         quadrupoles = {"names": self.quadrupoles, "bdes": bdes, "bact": bdes.copy(),
                        "xdes": np.array([self.qmag_xdes.get(name, 0.0) for name in self.quadrupoles], dtype=float),
@@ -711,9 +711,9 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
             sigy[i] = float(screen_data["sigy"][idx])
         return sigx, sigy
 
-    def _predict_scan_response_full(self, quad_name, screens, K1L_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref = None, with_twiss=False, stop_checker=None, reference_screen=None):
+    def _predict_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref = None, stop_checker=None, reference_screen=None):
         screens = list(screens)
-        K1L_values = np.asarray(K1L_values, dtype=float)
+        quad_setting_values = np.asarray(quad_setting_values, dtype=float)
         if reference_screen is None: reference_screen = screens[0]
         end_element_name = str(screens[-1])
         B0_original = self.B0
@@ -728,24 +728,24 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         dx = 0.0 if quad_dx0 is None else float(quad_dx0)
         dy = 0.0 if quad_dy0 is None else float(quad_dy0)
         roll = 0.0 if quad_roll is None else float(quad_roll)
-        nK1L, nscreens = len(K1L_values), len(screens)
-        sigma_x = np.full((nK1L, nscreens), np.nan, dtype=float)
-        sigma_y = np.full((nK1L, nscreens), np.nan, dtype=float)
-        x_mean = np.full((nK1L, nscreens), np.nan, dtype=float)
-        y_mean = np.full((nK1L, nscreens), np.nan, dtype=float)
-        sigma_xy = np.full((nK1L, nscreens), np.nan, dtype=float)
-        particles_xy = np.empty((nK1L, nscreens), dtype=object)
+        n_settings, nscreens = len(quad_setting_values), len(screens)
+        sigma_x = np.full((n_settings, nscreens), np.nan, dtype=float)
+        sigma_y = np.full((n_settings, nscreens), np.nan, dtype=float)
+        x_mean = np.full((n_settings, nscreens), np.nan, dtype=float)
+        y_mean = np.full((n_settings, nscreens), np.nan, dtype=float)
+        sigma_xy = np.full((n_settings, nscreens), np.nan, dtype=float)
+        particles_xy = np.empty((n_settings, nscreens), dtype=object)
         twiss_fields = ("emitt_x", "emitt_y", "beta_x", "beta_y", "alpha_x", "alpha_y")
-        twiss = {field: np.full((nK1L, nscreens), np.nan, dtype=float) for field in twiss_fields} if with_twiss else {}
+        twiss = {field: np.full((n_settings, nscreens), np.nan, dtype=float) for field in twiss_fields}
 
         try:
             if override_offsets:
                 for element in quad_elements:
                     element.set_offsets(dx, dy, 0.0, roll, 0.0, 0.0, "center")
-            for k,K1L in enumerate(K1L_values):
+            for k,quad_setting in enumerate(quad_setting_values):
                 if callable(stop_checker) and stop_checker():
                     raise RuntimeError("__OPTIMIZATION_STOP__")
-                self.set_quadrupoles([quad_name], [float(K1L)], track=False)
+                self.set_quadrupoles([quad_name], [float(quad_setting)], track=False)
 
                 end_element = self.lattice[end_element_name]
                 if isinstance(end_element, list):
@@ -774,10 +774,9 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
                         x_mean[k, si] = xm
                         y_mean[k, si] = ym
                         sigma_xy[k, si] = float(np.mean((xs - xm) * (ys - ym))) # covariance
-                        if with_twiss:
-                            info = bunch_at_screen.get_info()
-                            for field in twiss_fields:
-                                twiss[field][k, si] = float(getattr(info, field, np.nan))
+                        info = bunch_at_screen.get_info()
+                        for field in twiss_fields:
+                            twiss[field][k, si] = float(getattr(info, field, np.nan))
 
         finally:
             self.lattice = lattice_reference
@@ -791,12 +790,12 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
             **twiss,
         }
 
-    def predict_emittance_scan_response(self, quad_name, screens, K1L_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker = None, reference_screen = None):
-        full = self._predict_scan_response_full(quad_name, screens, K1L_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=stop_checker, reference_screen=reference_screen)
+    def predict_emittance_scan_response(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker = None, reference_screen = None):
+        full = self._predict_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=stop_checker, reference_screen=reference_screen)
         return full["sigma_x"], full["sigma_y"]
 
-    def predict_emittance_scan_response_full(self, quad_name, screens, K1L_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref = None, with_twiss=False, stop_checker=None, reference_screen=None):
-        return self._predict_scan_response_full(quad_name, screens, K1L_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=quad_dx0, quad_dy0=quad_dy0, quad_roll=quad_roll, energy_pref = energy_pref, with_twiss=with_twiss, stop_checker=stop_checker, reference_screen=reference_screen)
+    def predict_emittance_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref = None, stop_checker=None, reference_screen=None):
+        return self._predict_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=quad_dx0, quad_dy0=quad_dy0, quad_roll=quad_roll, energy_pref = energy_pref, stop_checker=stop_checker, reference_screen=reference_screen)
 
     def get_twiss_at_screen(self, name): # for printing emittance after bba using rft interface, can be deleted later
         if name not in self.screens:
@@ -971,24 +970,24 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
 
         return result
 
-    def get_R_matrix_scan(self, quad_name, screens, K1L_values):
+    def get_R_matrix_scan(self, quad_name, screens, quad_setting_values):
         screens = list(screens)
-        K1L_values = np.asarray(K1L_values, dtype=float)
+        quad_setting_values = np.asarray(quad_setting_values, dtype=float)
         original_quads = self.get_quadrupoles(names=[quad_name])
-        K1L_original = float(original_quads["bdes"][0])
+        original_quad_setting = float(original_quads["bdes"][0])
         end_element_name = str(screens[-1])
 
-        n_k1l = len(K1L_values)
+        n_settings = len(quad_setting_values)
         n_screens = len(screens)
-        R11 = np.full((n_k1l, n_screens), np.nan, dtype=float)
-        R12 = np.full((n_k1l, n_screens), np.nan, dtype=float)
-        R33 = np.full((n_k1l, n_screens), np.nan, dtype=float)
-        R34 = np.full((n_k1l, n_screens), np.nan, dtype=float)
+        R11 = np.full((n_settings, n_screens), np.nan, dtype=float)
+        R12 = np.full((n_settings, n_screens), np.nan, dtype=float)
+        R33 = np.full((n_settings, n_screens), np.nan, dtype=float)
+        R34 = np.full((n_settings, n_screens), np.nan, dtype=float)
 
         original_bunch = self.B0
         try:
-            for k, K1L in enumerate(K1L_values):
-                self.set_quadrupoles([quad_name], [float(K1L)], track=False)
+            for k, quad_setting in enumerate(quad_setting_values):
+                self.set_quadrupoles([quad_name], [float(quad_setting)], track=False)
                 start_elements = self._map_quadrupoles_names_from_lattice(quad_name)
                 start_element = start_elements[0]
                 if isinstance(start_element, list):
@@ -1009,7 +1008,7 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
                     b_x = screen_elem.get_bunch() # reads screens after tracking
                     if b_x is None and str(screen_name) == end_element_name: b_x = tracked_x
                     phase_space_x = np.asarray(b_x.get_phase_space("%x %xp"), dtype=float)
-                    R11[k, si] = phase_space_x[0, 0] # R11[2,1] - > 3rd K1L, 2nd screen
+                    R11[k, si] = phase_space_x[0, 0] # R11[2,1] - > 3rd quad_setting, 2nd screen
                     R12[k, si] = phase_space_x[1, 0]
 
                 by = np.array([[0.0, 0.0, 1.0, 0.0, 0.0, self.Pref], [0.0, 0.0, 0.0, 1.0, 0.0, self.Pref]], dtype=float)
@@ -1026,11 +1025,11 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
                     R33[k, si] = phase_space_y[0, 0]
                     R34[k, si] = phase_space_y[1, 0]
         finally:
-            self.set_quadrupoles([quad_name], [float(K1L_original)], track=False)
+            self.set_quadrupoles([quad_name], [float(original_quad_setting)], track=False)
             self.B0 = original_bunch
             self.__track_bunch()
 
-        return {"R11": R11, "R12": R12, "R33": R33, "R34": R34, "screens": screens, "K1L_values": K1L_values}
+        return {"R11": R11, "R12": R12, "R33": R33, "R34": R34, "screens": screens, "quad_setting_values": quad_setting_values}
 
 
     '''
