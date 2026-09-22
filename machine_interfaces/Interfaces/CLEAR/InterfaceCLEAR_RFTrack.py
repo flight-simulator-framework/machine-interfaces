@@ -879,4 +879,12 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
             raise ValueError("quad_value_unit must be 'A' for CLEAR.")
 
         tracking_results = self.predict_emittance_scan_response_full(quad_name=quad_name, screens = screens, quad_setting_values = [quad_setting], emit_x= beam_parameters["emit_x_norm"], emit_y = beam_parameters["emit_y_norm"], beta_x0 = beam_parameters["beta_x0"], beta_y0 = beam_parameters["beta_y0"], alpha_x0 = beam_parameters["alpha_x0"], alpha_y0 = beam_parameters["alpha_y0"]) # e.g result for one setting and 3 screens
+        screen_names = self._model_screen_names(screens)
+        screen_positions = []
+
+        for name in screen_names:
+            positions = self._get_elements_positions_show_beamline(name)
+            screen_positions.append(positions["S"][-1])
+        tracking_results["S"] = np.array(screen_positions, dtype=float)
+
         return tracking_results

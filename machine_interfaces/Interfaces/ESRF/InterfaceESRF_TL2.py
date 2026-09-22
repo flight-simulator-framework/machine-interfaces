@@ -173,38 +173,33 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             target = self.initial_gridv
             self._set_and_verify(lambda: attribute.write(target), lambda: attribute.read().w_value, target, description="Grid voltage")
 
-    def change_energy(self, delta=None):
+    def change_energy(self, delta=None): # delta is in ms
+        # you read in s, set in us, and in the file it's ms
         delta = self.energy_delta if delta is None else delta
-        if delta is None or not np.isfinite(delta) or abs(delta) >= 5:
-            raise ValueError("Set energy_delta in ms, with abs(delta) < 5 ms.")
+        if delta is None or not np.isfinite(delta):
+            raise ValueError("Set energy_delta in ms.")
         timing = 'infra/t-whist/bunchclock/Text'
-        unit = self.text_unit or tango.AttributeProxy(timing).get_config().unit
-        units = {"s": 1000, "sec": 1000, "ms": 1, "us": 0.001, "µs": 0.001, "μs": 0.001}
-        to_ms = units.get(unit.strip().lower())
-        if to_ms is None:
-            raise ValueError(f"Unknown Text unit: {unit!r}. Set text_unit to the Tango attribute unit.")
         magnets = [
             'sy/ps-ke/1/current', 'sy/ps-bumper/1/current', 'sy/ps-se/1/current',
             'sy/ps-bumper/2/current', 'sy/ps-se/2-1/current', 'sy/ps-bumper/3/current',
         ]
-        settings = self.initial_energy_settings or {
-            name: float(tango.AttributeProxy(name).read().w_value) for name in [timing] + magnets
-        }
-        initial = settings[timing]
+        settings = self.initial_energy_settings or {name: float(tango.AttributeProxy(name).read().w_value) for name in [timing] + magnets}
+        initial = settings[timing] # seconds!
         with (Path(__file__).parent / "Setup_files" / "rips_dipole_ramp.csv").open() as f:
             ramp = list(csv.DictReader(f))
-        times = np.array([float(row["step"]) for row in ramp]) / 1599 * 250
+        times = np.array([float(row["step"]) for row in ramp]) / 1599 * 250 # in ms!
         currents = np.array([float(row["Dipole Output Current [Amp]"]) for row in ramp])
-        t0, t1 = initial * to_ms, initial * to_ms + delta
-        if not times[0] <= t0 <= times[-1] or not times[0] <= t1 <= times[-1]:
-            raise ValueError("Extraction time is outside the ramp; check Text units.")
-        factor = np.interp(t1, times, currents) / np.interp(t0, times, currents)
-        target = initial + delta / to_ms
-        self.log(f"Text: {initial} -> {target} {unit}, dP/P = {factor - 1:.6g}")
+        #t0, t1 = initial * to_ms, initial * to_ms + delta # e.g 144ms -> 145ms
+        t0 = initial * 1000
+        t1 = t0 + delta
+        factor = np.interp(t1, times, currents) / np.interp(t0, times, currents) # energy change
+        #target = initial + delta / to_ms # seconds, writing back to initial state
+        target = t1 * 1000
+        self.log(f"Text: {initial} s -> {target} us, dP/P = {factor - 1:.6g}")
         self.initial_energy_settings = settings
         for name in magnets:
             tango.AttributeProxy(name).write(self.initial_energy_settings[name] * factor)
-        tango.AttributeProxy(timing).write(target)
+        tango.AttributeProxy(timing).write(target) # us
         time.sleep(self.settle_time)
         return float(factor - 1)
 
@@ -212,7 +207,8 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
         errors = []
         for name, value in self.initial_energy_settings.items():
             try:
-                tango.AttributeProxy(name).write(value)
+                target = value * 1e6 if name == 'infra/t-whist/bunchclock/Text' else value
+                tango.AttributeProxy(name).write(target)
             except Exception as error:
                 errors.append(error)
         if errors:

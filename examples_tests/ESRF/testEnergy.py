@@ -20,7 +20,7 @@ print("Text:", attribute.read().w_value)
 print("======Worked!======")
 
 print("Test of ESRF interface method change_energy().")
-print("dP/P:", I.change_energy(2))
+print("dP/P:", I.change_energy(0.002)) # it's in ms
 print("After change:", attribute.read().w_value)
 I.reset_energy()
 print("Restored:", attribute.read().w_value)

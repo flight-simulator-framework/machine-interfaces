@@ -28,5 +28,5 @@ I.set_quadrupoles(names, 10.0)
 print("After changing quadrupoles with the interface:", I.get_quadrupoles(names))
 
 print("Resetting back:", I.get_quadrupoles(names))
-I.set_quadrupoles(names, 10.0)
+I.set_quadrupoles(names, i)
 print("Restored quadrupoles to initial values:", I.get_quadrupoles(names))
