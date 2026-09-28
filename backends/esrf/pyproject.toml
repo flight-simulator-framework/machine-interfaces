@@ -1,6 +1,6 @@
 [project]
 name = "machine-interfaces-esrf"
-version = "0.2.1"
+version = "0.2.2"
 description = "ESRF interfaces and machine model data for Flight Simulator."
 requires-python = ">=3.11"
 dependencies = [

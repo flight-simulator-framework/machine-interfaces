@@ -159,6 +159,12 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
         except Exception:
             return float(default)
 
+    def get_beam_settings(self):
+        return {
+            "Text": float(tango.AttributeProxy('infra/t-whist/bunchclock/Text').read().w_value),
+            "pulsev": float(tango.AttributeProxy('elin/beam/run/pulsev').read().w_value),
+        }
+
     def change_intensity(self, delta=-1):
         delta = self.intensity_delta if delta is None else delta
         if delta is None or not np.isfinite(delta):
