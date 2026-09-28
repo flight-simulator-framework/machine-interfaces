@@ -217,7 +217,7 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
         tango.AttributeProxy('sy/ps-se/2-1/current').write(syext[syext["name"]=="sy/ps-se/2-1/current"]["current"].values[0])
         tango.AttributeProxy('sy/ps-bumper/3/current').write(syext[syext["name"]=="sy/ps-bumper/3/current"]["current"].values[0])
         time.sleep(self.settle_time)
-        self.log(f"Write {timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0]*1e-6} to Text and {tango.AttributeProxy('infra/t-whist/bunchclock/Text').read().w_value} is read")
+        self.log(f"Write {timing[timing['name']=='infra/t-whist/bunchclock/Text']['current'].values[0]*1e-6} to Text and {tango.AttributeProxy('infra/t-whist/bunchclock/Text').read().w_value} is read")
 
     def get_sequence(self):
         return self.sequence

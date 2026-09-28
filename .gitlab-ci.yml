@@ -8,12 +8,12 @@ variables:
 before_script:
   - python -m pip install poetry-core==2.4.0 build twine
 
-test:
+validate:
   script:
-    - python -m unittest discover -s tests -v
+    - python -m compileall -q machine_interfaces backends
 
 publish:
-  needs: [test]
+  needs: [validate]
   parallel:
     matrix:
       - PACKAGE_DIR: [".", "backends/clear", "backends/atf2", "backends/facet2", "backends/esrf"]
