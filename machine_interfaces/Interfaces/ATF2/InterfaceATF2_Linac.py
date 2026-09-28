@@ -8,13 +8,6 @@ from typing import Dict, Optional
 from epics import PV, ca
 
 '''
-TO IMPLEMENT!!!
-
-def get_quadrupoles(self):
-    pass
-def set_quadrupoles(self):
-    pass
-    
 BPMs at 0 dispersion region:
  ML6T, ML5T, ML105T 
 '''

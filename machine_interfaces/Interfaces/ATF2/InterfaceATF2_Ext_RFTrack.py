@@ -1210,13 +1210,3 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         if getattr(self, "_needs_tracking", False):
             self.__track_bunch()
             self._needs_tracking = False
-
-    def _I_to_KL(self, name, I):
-        if name not in self.kl_per_A:
-            raise KeyError(f"kl_per_A is not defined for corrector '{name}'")
-        return np.asarray(I, dtype=float) * self.kl_per_A[name]
-
-    def _KL_to_I(self, name, kl):
-        if name not in self.kl_per_A:
-            raise KeyError(f"kl_per_A is not defined for corrector '{name}'")
-        return np.asarray(kl, dtype=float) / self.kl_per_A[name]

@@ -105,9 +105,6 @@ class SaveOrLoad():
     def _load_bpms(self):
         self._loading_func(loading_name="Load BPMs", filename="bpms.txt", elements_list=self.bpms_list)
 
-    def _load_quadrupoles(self):
-        self._loading_func(loading_name="Load Quadrupoles", filename="quadrupoles.txt", elements_list=self.quadrupoles_list)
-
     def _load_screens(self):
         self._loading_func(loading_name="Load Screens", filename="screens.txt", elements_list=self.screens_list)
 

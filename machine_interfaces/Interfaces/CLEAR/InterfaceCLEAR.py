@@ -177,10 +177,6 @@ class CLEAR_real_machine(AbstractMachineInterface):
             data = json.load(f)
         return data['devices']
 
-    def _get_charge_reference(self):
-        value = self.get_icts(names = self.chosen_ict)
-        return value["charge"]
-
     def _give_elements_to_show_beamline(self, quad_selected):
         start_quad_element_name = quad_selected
         return start_quad_element_name
@@ -547,11 +543,6 @@ class CLEAR_real_machine(AbstractMachineInterface):
                 f"within {timeout:.2f}s. Last readback = {last_values[corrector]:.6g}"
             )
         return not pending
-
-    def _wait_for_quadrupole_readback(self, quadrupole, target, tolerance=0.1, timeout=10.0):
-        readback_param = self.quad_get_params[quadrupole]
-        property_address, field = readback_param.rsplit("#", 1)
-        return self._wait_for_japc_readback(property_address, field, target, context=self.context_acquisition, tolerance=tolerance, timeout=timeout)
 
     def _wait_for_quadrupole_readbacks(self, names, targets, tolerance=0.1, timeout=10.0, poll_interval=0.05):
         targets = {name: float(target) for name, target in zip(names, targets)}
@@ -964,11 +955,3 @@ class CLEAR_real_machine(AbstractMachineInterface):
 
     def log_messages(self, console):
         self.log = console or print
-
-    def _read_screen_setting(self, screen_name):
-        japc_camera = self.screen_config.get(screen_name, {}).get('japc_name', screen_name.rstrip('LH'))
-        try:
-            return self.client.get(f'{japc_camera}.DigiCam/Setting', context = self.context_empty).data
-        except Exception as e:
-            print(e)
-            return None
