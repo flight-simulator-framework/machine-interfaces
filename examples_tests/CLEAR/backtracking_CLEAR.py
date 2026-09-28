@@ -1,5 +1,5 @@
 import RF_Track as rft
-from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
+from machine_interfaces_clear.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
 
 interface = InterfaceCLEAR_RFTrack()
 

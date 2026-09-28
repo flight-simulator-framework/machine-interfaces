@@ -4,7 +4,7 @@ import matplotlib
 import numpy as np
 matplotlib.use("QtAgg")
 import matplotlib.pyplot as plt
-from machine_interfaces.Interfaces.CLEAR.Setup_files.CLEAR_BPM_getHV import change_inverted_bpm_polarity, process_bpm_signal
+from machine_interfaces_clear.Setup_files.CLEAR_BPM_getHV import change_inverted_bpm_polarity, process_bpm_signal
 path_to_datafiles = "/Users/wiktoriamalek/CERN-Flight_Simulator-Data/20260729_BPMtests"
 bpms = ["BPM0530", "BPM0595", "BPM0690", "BPM0820", "BPM0890"]
 

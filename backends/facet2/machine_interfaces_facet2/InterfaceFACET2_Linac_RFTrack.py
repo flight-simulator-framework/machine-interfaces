@@ -4,7 +4,7 @@ from datetime import datetime
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 import RF_Track as rft
 import sys
-from machine_interfaces.Interfaces.FACET2.FACET2 import FACET2
+from machine_interfaces_facet2.FACET2 import FACET2
 
 
 class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):

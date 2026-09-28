@@ -2,7 +2,7 @@ import os, sys, pyjapc, time
 import pyda, pyda_japc
 from pathlib import Path
 import numpy as np
-from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR import CLEAR_real_machine
+from machine_interfaces_clear.InterfaceCLEAR import CLEAR_real_machine
 import matplotlib.pyplot as plt
 
 I = CLEAR_real_machine()

@@ -1,7 +1,7 @@
 [project]
 name = "machine-interfaces"
-version = "0.1.0"
-description = "Machine interface contract, accelerator adapters, registry and interface selector."
+version = "0.2.0"
+description = "Shared machine interface API, state storage and interface selection."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "wmalek", email = "wiktoria.malek@cern.ch"}]
@@ -10,18 +10,11 @@ dependencies = [
     "matplotlib>=3.10.8,<4",
     "PyQt6>=6.10.2,<7",
     "scipy>=1.17.1,<2",
-    "pytango (>=10.3.1,<11.0.0)",
-    "pandas (>=3.0.6,<4.0.0)"
 ]
 
 [project.optional-dependencies]
-rftrack = ["rf-track>=2.6.2,<3"]
-epics = ["pyepics>=1.0,<4"]
-madx = ["cpymad>=1,<2"]
-tao = ["pytao>=0.5,<2"]
 analysis = ["h5py>=3,<4"]
 camera-reference = ["pillow>=12.1.1,<13"]
-clear = ["pyda (>=1.1.0,<1.2) ; python_version >= \"3.11\" and python_version < \"4\"", "pyda-japc (>=1.1.0,<1.2) ; python_version >= \"3.11\" and python_version < \"4\"", "pyrbac (>=1.0,<2) ; python_version >= \"3.11\" and python_version < \"4\"", "pyccda (>=1.29.4) ; python_version >= \"3.11\" and python_version < \"4\"", "cmmnbuild-dep-manager (>=2.13,<3) ; python_version >= \"3.11\" and python_version < \"4\""]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -29,19 +22,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 packages = [{ include = "machine_interfaces" }]
+exclude = ["**/__pycache__/**", "**/*.pyc"]
 
-[[tool.poetry.source]]
-name = "cern-acc-py"
-url = "https://acc-py-repo.cern.ch/repository/vr-py-releases/simple/"
-priority = "explicit"
-
-
-[tool.poetry.dependencies]
-pyda = {source = "cern-acc-py", python = ">=3.11,<4"}
-pyda-japc = {source = "cern-acc-py", python = ">=3.11,<4"}
-pyrbac = {source = "cern-acc-py", python = ">=3.11,<4"}
-pyccda = {source = "cern-acc-py", python = ">=3.11,<4"}
-cmmnbuild-dep-manager = {source = "cern-acc-py", python = ">=3.11,<4"}
 [tool.flight-simulator.migration]
 status = "local-execution-ready"
 repository-dependencies = []

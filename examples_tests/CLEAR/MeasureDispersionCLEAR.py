@@ -3,7 +3,7 @@ import pyda, pyda_japc, pyjapc
 import os, sys
 from pathlib import Path
 import numpy as np
-from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR import CLEAR_real_machine
+from machine_interfaces_clear.InterfaceCLEAR import CLEAR_real_machine
 
 #from Interfaces.CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
 

@@ -1,6 +1,6 @@
-from machine_interfaces.Interfaces.CLEAR.Setup_files.CLEAR_BPM_getHV import baseline_correct, find_peak, threshold_integral, \
+from machine_interfaces_clear.Setup_files.CLEAR_BPM_getHV import baseline_correct, find_peak, threshold_integral, \
     change_inverted_bpm_polarity
-from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
+from machine_interfaces_clear.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
 import sys, time, math, os, json
 from scipy.integrate import trapezoid
 from enum import Enum
@@ -13,7 +13,7 @@ except ImportError:
     pyda = None
     pyda_japc = None
 
-from machine_interfaces.Interfaces.CLEAR import config
+from machine_interfaces_clear import config
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 
 class BPMsMode(Enum):

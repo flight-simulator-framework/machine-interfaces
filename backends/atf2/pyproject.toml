@@ -1,0 +1,30 @@
+[project]
+name = "machine-interfaces-atf2"
+version = "0.2.0"
+description = "ATF2 interfaces and machine model data for Flight Simulator."
+requires-python = ">=3.11"
+dependencies = [
+    "machine-interfaces>=0.2.0,<0.3",
+    "rf-track>=2.6.2,<3",
+    "pyepics>=1.0,<4",
+    "cpymad>=1,<2",
+]
+
+[[project.authors]]
+name = "wmalek"
+email = "wiktoria.malek@cern.ch"
+
+[project.entry-points."flight_simulator.interfaces"]
+ATF2 = "machine_interfaces_atf2.interface_setup"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.o", "**/*.so", "**/*.dylib", "**/.DS_Store"]
+[[tool.poetry.packages]]
+include = "machine_interfaces_atf2"
+
+[tool.poetry.dependencies]
+machine-interfaces = {path = "../..", develop = true}

@@ -17,7 +17,7 @@ try:
 except ImportError as exc:
     _control_import_error = str(exc)
 from traceback import print_exception
-from machine_interfaces.Interfaces.FACET2.FACET2 import FACET2
+from machine_interfaces_facet2.FACET2 import FACET2
 
 '''
 TO IMPLEMENT!!!

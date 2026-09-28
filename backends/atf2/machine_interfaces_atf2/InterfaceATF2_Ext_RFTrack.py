@@ -4,7 +4,7 @@ import time, os, re
 from machine_interfaces.Backend.LogConsole import LogConsole
 from datetime import datetime
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
-from machine_interfaces.Interfaces.ATF2.MagKi import load_mag_ki
+from machine_interfaces_atf2.MagKi import load_mag_ki
 # from . import ipbsm_calc
 # from .knobs import KnobSystem
 class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):

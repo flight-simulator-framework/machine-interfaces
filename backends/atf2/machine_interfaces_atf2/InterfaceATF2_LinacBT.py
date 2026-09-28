@@ -1,4 +1,4 @@
-from machine_interfaces.Interfaces.ATF2.InterfaceATF2_Linac import InterfaceATF2_Linac, LINAC_SEQUENCE, _build_beamline
+from machine_interfaces_atf2.InterfaceATF2_Linac import InterfaceATF2_Linac, LINAC_SEQUENCE, _build_beamline
 
 BT_SEQUENCE = LINAC_SEQUENCE + [
     # Transport-line BPM/corrector order from Interfaces/ATF2/Linac_ATF2/atfbt199912_daihon.sad.

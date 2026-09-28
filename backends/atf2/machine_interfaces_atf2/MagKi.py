@@ -46,8 +46,7 @@ def load_mag_ki():
     env_path = os.environ.get("ATF2_MAG_KI_LIB", "")
     if env_path:
         candidates.append(env_path)
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    libmagnet_dir = os.path.join(repo_root, "Machine specifics, user implementations", "ATF2", "libmagnet")
+    libmagnet_dir = os.path.join(os.path.dirname(__file__), "libmagnet")
     candidates.extend([
         os.path.join(libmagnet_dir, "libmagnet.dylib"),
         os.path.join(libmagnet_dir, "libmagnet.so"),

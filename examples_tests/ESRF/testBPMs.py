@@ -1,6 +1,6 @@
 import os
 import tango
-from machine_interfaces.Interfaces.ESRF.InterfaceESRF_TL2 import InterfaceESRF_TL2
+from machine_interfaces_esrf.InterfaceESRF_TL2 import InterfaceESRF_TL2
 from machine_interfaces.Backend.State import State
 from matplotlib import pyplot as plt
 

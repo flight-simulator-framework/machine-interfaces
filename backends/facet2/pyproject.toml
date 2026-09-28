@@ -1,0 +1,30 @@
+[project]
+name = "machine-interfaces-facet2"
+version = "0.2.0"
+description = "FACET2 interfaces and machine model data for Flight Simulator."
+requires-python = ">=3.11"
+dependencies = [
+    "machine-interfaces>=0.2.0,<0.3",
+    "rf-track>=2.6.2,<3",
+    "pyepics>=1.0,<4",
+    "pytao>=0.5,<2",
+]
+
+[[project.authors]]
+name = "wmalek"
+email = "wiktoria.malek@cern.ch"
+
+[project.entry-points."flight_simulator.interfaces"]
+FACET2 = "machine_interfaces_facet2.interface_setup"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.o", "**/*.so", "**/*.dylib", "**/.DS_Store"]
+[[tool.poetry.packages]]
+include = "machine_interfaces_facet2"
+
+[tool.poetry.dependencies]
+machine-interfaces = {path = "../..", develop = true}

@@ -6,11 +6,11 @@ sys.path.insert(0, str(ROOT))
 USE_REAL_MACHINE = False
 
 if USE_REAL_MACHINE:
-    from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR import CLEAR_real_machine
+    from machine_interfaces_clear.InterfaceCLEAR import CLEAR_real_machine
 
     machine = CLEAR_real_machine(nsamples=3)
 else:
-    from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
+    from machine_interfaces_clear.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
 
     machine = InterfaceCLEAR_RFTrack(nsamples=1)
 

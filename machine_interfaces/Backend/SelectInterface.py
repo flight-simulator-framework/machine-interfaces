@@ -10,16 +10,8 @@ except ImportError:
 import importlib
 import inspect
 import importlib.util
-from pathlib import Path
-from machine_interfaces.Interfaces.interface_setup import INTERFACE_SETUP
+from machine_interfaces.Interfaces.interface_setup import INTERFACE_SETUP, ACCELERATOR_BRANDING
 
-
-ASSETS_DIR = Path(__file__).resolve().parent.parent / "UI files" / "Assets"
-ACCELERATOR_BRANDING = {
-    "ATF2": ("KEK", "atf2_logo.png", "kek_logo.png"),
-    "FACET2": ("SLAC", "facet2_logo.png", "slac_logo.png"),
-    "CLEAR": ("CERN", "clear_logo.png", "CERN_logo.png"),
-}
 
 def _no_focus_policy():
     return Qt.FocusPolicy.NoFocus if hasattr(Qt, "FocusPolicy") else Qt.NoFocus
@@ -41,14 +33,13 @@ def _branding_header(accelerator):
     if branding is None:
         return None
 
-    institute, accelerator_logo, institute_logo = branding
     header = QHBoxLayout()
     header.setContentsMargins(0, 0, 0, 6)
     header.setSpacing(12)
     header.addStretch()
 
-    for logo_name in (accelerator_logo, institute_logo):
-        pixmap = QPixmap(str(ASSETS_DIR / logo_name))
+    for logo_path in branding:
+        pixmap = QPixmap(str(logo_path))
         if pixmap.isNull():
             continue
         logo = QLabel()
@@ -311,7 +302,7 @@ def choose_acc_and_interface(parent=None):
     available_interface_setup = get_available_interface_setup(include_unavailable=True)
     machines = sorted(available_interface_setup.keys())
     if not machines:
-        QMessageBox.critical(parent, "Interface unavailable", "No available interfaces were found.")
+        QMessageBox.critical(parent, "Interface unavailable", "No machine interface packages are installed. Install this application with --extras clear, atf2, facet2 or esrf.")
         return None
 
     if len(machines)==1:

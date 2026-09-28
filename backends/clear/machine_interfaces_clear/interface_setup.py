@@ -1,0 +1,91 @@
+from pathlib import Path
+
+INTERFACES = [{'display_name': 'CLEAR',
+  'module': 'machine_interfaces_clear.InterfaceCLEAR',
+  'class_name': 'CLEAR_real_machine',
+  'clock_timezone': 'Europe/Zurich',
+  'beam_change': {'energy': {'label': 'Change energy',
+                             'tooltip': 'Writes MKS11 PhaseSh_SP. Nominal is restored after the DFS '
+                                        'measurement.',
+                             'nominal': {'label': 'Nominal [deg]',
+                                         'attribute': 'rf_phase_nominal',
+                                         'default': 125.0},
+                             'test': {'label': 'Test [deg]', 'attribute': 'rf_phase_test', 'default': 145.0}},
+                  'intensity': {'label': 'Quadrupole scaling',
+                                'tooltip': 'Multiply the quadrupole currents captured when the interface was '
+                                           'opened by this factor. Restore those currents afterward.',
+                                'test': {'label': 'Scaling factor',
+                                         'attribute': 'quadrupole_scaling_factor',
+                                         'default': 0.5},
+                                'labels': {'mode': 'Quadrupole scaling',
+                                           'status': 'Quadrupole scaling',
+                                           'quantity': 'Quadrupole scaling',
+                                           'short': 'Quadrupole scaling',
+                                           'correction': 'Quadrupole scaling correction',
+                                           'weight': 'Quadrupole scaling weight',
+                                           'weight_tooltip': 'Weight of the orbit-response change caused by '
+                                                             'scaling quadrupole currents. Higher values '
+                                                             'prioritize reducing this difference.',
+                                           'plot_title': 'Quadrupole scaling (Residual to response matrix '
+                                                         'reference)',
+                                           'measuring': 'Measuring orbit with scaled quadrupoles',
+                                           'changed': 'Quadrupole currents scaled',
+                                           'directory': 'quadrupole scaling',
+                                           'data_loaded': 'Quadrupole Scaling Data Loaded',
+                                           'same_settings': 'Orbit and quadrupole scaling measurements have '
+                                                            'the same settings.',
+                                           'restore_error': 'Could not confirm the machine returned to its '
+                                                            'nominal RF phase and initial quadrupole '
+                                                            'currents.',
+                                           'restore_start': 'Restoring RF phase and quadrupole settings from '
+                                                            'machine status...',
+                                           'restore_done': 'RF phase and quadrupole settings restored!',
+                                           'jitter_tooltip': 'Use upstream BPMs to estimate incoming beam '
+                                                             'jitter and subtract it from downstream BPM '
+                                                             'readings. With energy changes or quadrupole '
+                                                             'scaling, real orbit changes may be mistaken '
+                                                             'for jitter and over-subtracted.'}}},
+  'settings': {'nsamples': 3},
+  'units': {'corrector_strength': 'A',
+            'quadrupole_strength': 'A',
+            'bpm_position': 'mm',
+            'sysid_corrector_kick': 1,
+            'sysid_target_excursion': 5.0,
+            'bba_max_h_strength': 9.99,
+            'bba_max_v_strength': 9.99},
+  'bounds': {'emit_x_norm': [0.0, 50.0],
+             'beta_x0': [0.001, 200.0],
+             'alpha_x0': [-100.0, 100.0],
+             'emit_y_norm': [0.0, 50.0],
+             'beta_y0': [0.001, 200.0],
+             'alpha_y0': [-100.0, 100.0],
+             'energy_pref': [150.0, 250.0]}},
+ {'display_name': 'CLEAR RFTrack',
+  'module': 'machine_interfaces_clear.InterfaceCLEAR_RFTrack',
+  'class_name': 'InterfaceCLEAR_RFTrack',
+  'clock_timezone': 'Europe/Zurich',
+  'beam_change': {'energy': {'label': 'Change energy',
+                             'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
+                             'test': {'label': 'Pref factor',
+                                      'attribute': 'dfs_test_energy',
+                                      'default': 0.9}},
+                  'intensity': {'label': 'Change intensity',
+                                'tooltip': 'Multiplies the RFTrack bunch charge for the WFS measurement.',
+                                'test': {'label': 'Charge factor',
+                                         'attribute': 'wfs_test_charge',
+                                         'default': 0.9}}},
+  'settings': {'jitter': 0.0, 'bpm_resolution': 0.0, 'nsamples': 1},
+  'units': {'corrector_strength': 'gauss*m',
+            'bpm_position': 'mm',
+            'sysid_corrector_kick': 0.01,
+            'bba_max_h_strength': 9.99,
+            'bba_max_v_strength': 9.99},
+  'bounds': {'emit_x_norm': [0.0, 50.0],
+             'beta_x0': [0.001, 200.0],
+             'alpha_x0': [-100.0, 100.0],
+             'emit_y_norm': [0.0, 50.0],
+             'beta_y0': [0.001, 200.0],
+             'alpha_y0': [-100.0, 100.0],
+             'energy_pref': [150.0, 250.0]}}]
+
+BRANDING = tuple(Path(__file__).parent / "assets" / name for name in ('clear_logo.png', 'CERN_logo.png'))

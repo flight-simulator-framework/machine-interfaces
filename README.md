@@ -1,11 +1,34 @@
 # Machine Interfaces
 
-Connect Flight Simulator applications to an accelerator control system or a simulation. An interface translates machine-specific commands and measurements into the common operations used by the applications: reading BPMs and magnet settings, changing actuators, recording machine states and controlling beam energy or intensity.
+Connect Flight Simulator applications to an accelerator control system or a simulation. An interface implements commands into the common set of methods used by the applications.
 
-The repository contains interfaces for ATF2, CLEAR and FACET2, including live-machine and RFTrack implementations.
+The repository consists of 5 machine-folders, able to run on the real or simulated machine:
+`machine-interfaces`, `machine-interfaces-clear`, `machine-interfaces-atf2`, `machine-interfaces-facet2`, `machine-interfaces-esrf`
+
+Machine packages are in `backends/<machine>`. Installed packages register their choices through the `flight_simulator.interfaces` entry-point group. The selector displays only installed machines. Importing the registry does not connect to any machine.
+
+## Installation
+
+For an application, follow its README and select a machine with `poetry install --extras clear` (or `atf2`, `facet2`, `esrf`).
 
 
-The available choices are registered in `machine_interfaces/Interfaces/interface_setup.py`; `machine_interfaces/Backend/SelectInterface.py` provides the selection window.
+```bash
+cd backends/clear
+poetry install
+```
+
+CLEAR requires access to the CERN Acc-Py repository and the CERN CA certificate trusted by Poetry. The `clear` extra declares the CERN packages explicitly because Poetry source selection is not inherited from dependencies. ATF2 and FACET2 live interfaces require their EPICS environment; ESRF requires Tango. For ATF2 magnet conversion, build the native library from `backends/atf2/machine_interfaces_atf2/libmagnet` or supply its path through `ATF2_MAG_KI_LIB`.
+
+## Build
+
+
+```bash
+poetry build
+poetry -C backends/clear build
+poetry -C backends/atf2 build
+poetry -C backends/facet2 build
+poetry -C backends/esrf build
+```
 
 ## Connecting a new machine
 
@@ -106,14 +129,14 @@ Scan ranges are entered in amperes. If a quadrupole's `value_unit` is not `A`, t
 
 ## Next steps to create a new machine interface
 
-The first step is modifying the `machine_interfaces/Interfaces/interface_setup.py`, grouped by accelerator.
+Create a separate adapter package with an `interface_setup.py` exporting an `INTERFACES` list and a `BRANDING` tuple of logo paths (or an empty tuple). Register that module under `[project.entry-points."flight_simulator.interfaces"]` in its `pyproject.toml`, using the accelerator name as the key. See `backends/clear` for the package layout.
 
 An example of an entry is:
 
 ```python
 {
     "display_name": "New accelerator",
-    "module": "machine_interfaces.Interfaces.NewAccelerator.InterfaceNewAccelerator",
+    "module": "machine_interfaces_newaccelerator.InterfaceNewAccelerator",
     "class_name": "InterfaceNewAccelerator",
     "settings": {"nsamples": 3},
     "units": {
@@ -127,7 +150,7 @@ An example of an entry is:
 The values are an example structure only; choose real units and appropriate kicks for the new machine. The module path must match the implementation.
 
 1. Provide device inventories, beamline order, acquisition methods, corrector setters and the required energy/intensity methods. Follow the documented data shapes, device ordering and units.
-2. Register the interface and its constructor settings in `machine_interfaces/Interfaces/interface_setup.py` so that it appears in the selector.
+2. Register the interface and its constructor settings in the adapter package’s `INTERFACES` list so that it appears in the selector when that package is installed.
 
 ## Shared application utilities
 
@@ -144,14 +167,14 @@ This repository also provides the common modules used by the applications:
 Use Python 3.11 or newer and Poetry 2 or newer. From the repository directory, install the dependencies:
 
 ```bash
-poetry update rf-track --lock
-poetry install --extras "rftrack epics madx tao"
+poetry -C backends/clear update rf-track --lock
+poetry -C backends/clear install
 ```
 
-The Python package is named `machine_interfaces`. For example:
+The shared Python package is named `machine_interfaces`; adapters have separate names such as `machine_interfaces_clear`. For example:
 
 ```python
-from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
+from machine_interfaces_clear.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
 ```
 
 ## ATF2 magnet-current calibration
@@ -159,7 +182,7 @@ from machine_interfaces.Interfaces.CLEAR.InterfaceCLEAR_RFTrack import Interface
 ATF2 emittance scans and magnet-current conversion require the native `libmagnet` library. Install a C compiler, GNU Fortran (`gfortran`) and `make`, then build it from the sources in this repository:
 
 ```bash
-cd "machine_interfaces/Machine specifics, user implementations/ATF2/libmagnet"
+cd backends/atf2/machine_interfaces_atf2/libmagnet
 make CFLAG=-fPIC
 ```
 

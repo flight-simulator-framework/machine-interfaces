@@ -1,6 +1,6 @@
 import os
 import tango
-from machine_interfaces.Interfaces.ESRF.InterfaceESRF_TL2 import InterfaceESRF_TL2
+from machine_interfaces_esrf.InterfaceESRF_TL2 import InterfaceESRF_TL2
 os.environ["TANGO_HOST"] = "ebs-simu-1:10000"
 v = os.getenv("TANGO_HOST")
 if v == "ebs-simu-1:10000":
