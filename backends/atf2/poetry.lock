@@ -395,8 +395,9 @@ description = "Shared machine interface API, state storage and interface selecti
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
-files = []
-develop = true
+files = [
+    {file = "machine_interfaces-0.2.0-py3-none-any.whl", hash = "sha256:0ec3dea3f9b5a704cc9b31d9f39fdc8771afd078df14183938ad4b86dcb5048a"},
+]
 
 [package.dependencies]
 matplotlib = ">=3.10.8,<4"
@@ -409,8 +410,9 @@ analysis = ["h5py (>=3,<4)"]
 camera-reference = ["pillow (>=12.1.1,<13)"]
 
 [package.source]
-type = "directory"
-url = "../.."
+type = "legacy"
+url = "https://gitlab.cern.ch/api/v4/groups/363527/-/packages/pypi/simple/"
+reference = "flight-simulator"
 
 [[package]]
 name = "matplotlib"
@@ -944,4 +946,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "7ded9e02ebe4dab58c160e341a44063e1e647a9c6aaffcd06831e44ea588b1b8"
+content-hash = "b3e8670b7250e39dbb594955f2317245177cafa1d78ff1b8979aba5615809dfa"

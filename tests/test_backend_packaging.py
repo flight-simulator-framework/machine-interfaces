@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -84,6 +85,16 @@ print(json.dumps({
                 if name == "core":
                     for dependency in ("rf-track", "pyepics", "pytao", "cpymad", "pytango", "pyda"):
                         self.assertNotIn("Requires-Dist: " + dependency, metadata)
+
+    def test_backends_build_without_sibling_checkouts(self):
+        for name in MACHINES:
+            with self.subTest(package=name), tempfile.TemporaryDirectory() as directory:
+                standalone = Path(directory) / "adapter"
+                shutil.copytree(ROOT / "backends" / name, standalone, ignore=shutil.ignore_patterns(".venv", "__pycache__", "dist"))
+                project = Factory().create_poetry(standalone)
+                self.assertFalse(any(dependency.is_directory() or dependency.is_vcs() for dependency in project.package.requires))
+                wheel = WheelBuilder(project).build(Path(directory) / "dist")
+                self.assertTrue(wheel.is_file())
 
     def test_model_data_is_bundled(self):
         required = {

@@ -1,0 +1,29 @@
+image: python:3.11
+
+variables:
+  SOURCE_DATE_EPOCH: "315532800"
+  TWINE_USERNAME: gitlab-ci-token
+  TWINE_PASSWORD: $CI_JOB_TOKEN
+
+before_script:
+  - python -m pip install poetry-core==2.4.0 build twine
+
+test:
+  script:
+    - python -m unittest discover -s tests -v
+
+publish:
+  needs: [test]
+  parallel:
+    matrix:
+      - PACKAGE_DIR: [".", "backends/clear", "backends/atf2", "backends/facet2", "backends/esrf"]
+  script:
+    - python -m build --no-isolation --wheel --outdir dist "$PACKAGE_DIR"
+    - python -m twine check dist/*.whl
+    - python -m twine upload --repository-url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi" dist/*.whl
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+  artifacts:
+    paths:
+      - dist/*.whl

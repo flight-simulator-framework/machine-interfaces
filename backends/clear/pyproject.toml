@@ -30,7 +30,7 @@ exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.o", "**/*.so", "**/*.dylib", "
 include = "machine_interfaces_clear"
 
 [tool.poetry.dependencies]
-machine-interfaces = {path = "../..", develop = true}
+machine-interfaces = {source = "flight-simulator"}
 pyda = {source = "cern-acc-py", python = ">=3.11,<4"}
 pyda-japc = {source = "cern-acc-py", python = ">=3.11,<4"}
 pyrbac = {source = "cern-acc-py", python = ">=3.11,<4"}
@@ -39,4 +39,8 @@ cmmnbuild-dep-manager = {source = "cern-acc-py", python = ">=3.11,<4"}
 [[tool.poetry.source]]
 name = "cern-acc-py"
 url = "https://acc-py-repo.cern.ch/repository/vr-py-releases/simple/"
+priority = "explicit"
+[[tool.poetry.source]]
+name = "flight-simulator"
+url = "https://gitlab.cern.ch/api/v4/groups/363527/-/packages/pypi/simple/"
 priority = "explicit"

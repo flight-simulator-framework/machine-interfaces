@@ -26,4 +26,9 @@ exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.o", "**/*.so", "**/*.dylib", "
 include = "machine_interfaces_esrf"
 
 [tool.poetry.dependencies]
-machine-interfaces = {path = "../..", develop = true}
+machine-interfaces = {source = "flight-simulator"}
+
+[[tool.poetry.source]]
+name = "flight-simulator"
+url = "https://gitlab.cern.ch/api/v4/groups/363527/-/packages/pypi/simple/"
+priority = "explicit"
