@@ -2,7 +2,9 @@ import csv
 import time
 from pathlib import Path
 import numpy as np
+import pandas
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
+import pandas as pd
 try:
     import tango
 except ImportError:
@@ -157,11 +159,11 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
         except Exception:
             return float(default)
 
-    def change_intensity(self, delta=None):
+    def change_intensity(self, delta=-1):
         delta = self.intensity_delta if delta is None else delta
         if delta is None or not np.isfinite(delta):
             raise ValueError("Set intensity_delta in V.")
-        attribute = tango.AttributeProxy('elin/beam/run/gridv')
+        attribute = tango.AttributeProxy('elin/beam/run/pulsev')
         if self.initial_gridv is None:
             self.initial_gridv = float(attribute.read().w_value)
         target = self.initial_gridv+delta
@@ -169,53 +171,53 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
 
     def reset_intensity(self):
         if self.initial_gridv is not None:
-            attribute = tango.AttributeProxy('elin/beam/run/gridv')
+            attribute = tango.AttributeProxy('elin/beam/run/pulsev')
             target = self.initial_gridv
             self._set_and_verify(lambda: attribute.write(target), lambda: attribute.read().w_value, target, description="Grid voltage")
 
-    def change_energy(self, delta=None): # delta is in ms
-        # you read in s, set in us, and in the file it's ms
-        delta = self.energy_delta if delta is None else delta
-        if delta is None or not np.isfinite(delta):
-            raise ValueError("Set energy_delta in ms.")
-        timing = 'infra/t-whist/bunchclock/Text'
-        magnets = [
-            'sy/ps-ke/1/current', 'sy/ps-bumper/1/current', 'sy/ps-se/1/current',
-            'sy/ps-bumper/2/current', 'sy/ps-se/2-1/current', 'sy/ps-bumper/3/current',
-        ]
-        settings = self.initial_energy_settings or {name: float(tango.AttributeProxy(name).read().w_value) for name in [timing] + magnets}
-        initial = settings[timing] # seconds!
-        with (Path(__file__).parent / "Setup_files" / "rips_dipole_ramp.csv").open() as f:
-            ramp = list(csv.DictReader(f))
-        times = np.array([float(row["step"]) for row in ramp]) / 1599 * 250 # in ms!
-        currents = np.array([float(row["Dipole Output Current [Amp]"]) for row in ramp])
-        #t0, t1 = initial * to_ms, initial * to_ms + delta # e.g 144ms -> 145ms
-        t0 = initial * 1000
-        t1 = t0 + delta
-        factor = np.interp(t1, times, currents) / np.interp(t0, times, currents) # energy change
-        #target = initial + delta / to_ms # seconds, writing back to initial state
-        target = t1 * 1000
-        self.log(f"Text: {initial} s -> {target} us, dP/P = {factor - 1:.6g}")
-        self.initial_energy_settings = settings
-        for name in magnets:
-            tango.AttributeProxy(name).write(self.initial_energy_settings[name] * factor)
-        tango.AttributeProxy(timing).write(target) # us
-        time.sleep(self.settle_time)
+    def change_energy(self, delta=1):
+        if delta is None or not np.isfinite(delta) or abs(delta)>=5: # limit to 10ms Text variation
+            raise ValueError("Delta value is wrong.")
+        "Change energy with extraction time in the booster"
+        "which is good because the dipoles ramp in TL2 and SY (booster) are synchronised"
+        df = pd.read_csv("/machfs/kandre/rips_dipole_ramp.csv")
+        timing = pd.read_csv("/opt/infra_rw/settings/Timing/operation_long.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+        syext = pd.read_csv("/opt/infra_rw/settings/syext/operation.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+        Eext = np.interp(144.2 - delta, df["step"]/1599*250, df["Dipole Output Current [Amp]"]) * 4.05776e-3
+        print(rf"For a dt = {-delta:.2f} ms, the extraction energy is ~ {Eext:.3f} GeV eq. to dpp = {1e2*(1-Eext/6):.2f}%")
+        factor =  1 - (1-Eext/6)
+        self.log(f"Change energy by {delta} which change the energy to {Eext:.2f}GeV ({1e2*(1-Eext/6):.2f}%)..")
+        try:
+            # commented to not change the machine by mistake
+            tango.AttributeProxy('infra/t-whist/bunchclock/Text').write((timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0] + delta*1e3)*1e-6)
+            tango.AttributeProxy('sy/ps-ke/1/current').write(syext[syext["name"]=="sy/ps-ke/1/current"]["current"].values[0] * factor)
+            tango.AttributeProxy('sy/ps-bumper/1/current').write(syext[syext["name"]=="sy/ps-bumper/1/current"]["current"].values[0]* factor)
+            tango.AttributeProxy('sy/ps-se/1/current').write(syext[syext["name"]=="sy/ps-se/1/current"]["current"].values[0]* factor)
+            tango.AttributeProxy('sy/ps-bumper/2/current').write(syext[syext["name"]=="sy/ps-bumper/2/current"]["current"].values[0]* factor)
+            tango.AttributeProxy('sy/ps-se/2-1/current').write(syext[syext["name"]=="sy/ps-se/2-1/current"]["current"].values[0]* factor)
+            tango.AttributeProxy('sy/ps-bumper/3/current').write(syext[syext["name"]=="sy/ps-bumper/3/current"]["current"].values[0]* factor)
+            time.sleep(self.settle_time)
+        except Exception as e:
+            self.log(f"ABORT : change_energy failed - {e}")
+            self.reset_energy()
+            raise
         return float(factor - 1)
 
     def reset_energy(self):
-        errors = []
-        for name, value in self.initial_energy_settings.items():
-            try:
-                target = value * 1e6 if name == 'infra/t-whist/bunchclock/Text' else value
-                tango.AttributeProxy(name).write(target)
-            except Exception as error:
-                errors.append(error)
-        if errors:
-            raise ExceptionGroup("Could not restore all extraction settings", errors)
-        if self.initial_energy_settings:
-            time.sleep(self.settle_time)
-            self.initial_energy_settings = {}
+        "Reset extraction time to the nominal value from operation_long.ts"
+        timing = pd.read_csv("/opt/infra_rw/settings/Timing/operation_long.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+        syext = pd.read_csv("/opt/infra_rw/settings/syext/operation.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+        self.log("Reset energy, with initial Text..")
+        # commented to not change the machine by mistake
+        tango.AttributeProxy('infra/t-whist/bunchclock/Text').write(timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0]*1e-6)
+        tango.AttributeProxy('sy/ps-ke/1/current').write(syext[syext["name"]=="sy/ps-ke/1/current"]["current"].values[0])
+        tango.AttributeProxy('sy/ps-bumper/1/current').write(syext[syext["name"]=="sy/ps-bumper/1/current"]["current"].values[0])
+        tango.AttributeProxy('sy/ps-se/1/current').write(syext[syext["name"]=="sy/ps-se/1/current"]["current"].values[0])
+        tango.AttributeProxy('sy/ps-bumper/2/current').write(syext[syext["name"]=="sy/ps-bumper/2/current"]["current"].values[0])
+        tango.AttributeProxy('sy/ps-se/2-1/current').write(syext[syext["name"]=="sy/ps-se/2-1/current"]["current"].values[0])
+        tango.AttributeProxy('sy/ps-bumper/3/current').write(syext[syext["name"]=="sy/ps-bumper/3/current"]["current"].values[0])
+        time.sleep(self.settle_time)
+        self.log(f"Write {timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0]*1e-6} to Text and {tango.AttributeProxy('infra/t-whist/bunchclock/Text').read().w_value} is read")
 
     def get_sequence(self):
         return self.sequence
@@ -264,7 +266,7 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
         device = tango.DeviceProxy('tl2/d-bpm/all')
         attributes = {
             "x": "x_position",
-            "y": "y_position",
+            "y": "z_position",
             "tmit": "charge",
         }
         for sample in range(self.nsamples):
