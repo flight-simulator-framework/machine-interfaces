@@ -144,6 +144,7 @@ This repository also provides the common modules used by the applications:
 Use Python 3.11 or newer and Poetry 2 or newer. From the repository directory, install the dependencies:
 
 ```bash
+poetry update rf-track --lock
 poetry install --extras "rftrack epics madx tao"
 ```
 
