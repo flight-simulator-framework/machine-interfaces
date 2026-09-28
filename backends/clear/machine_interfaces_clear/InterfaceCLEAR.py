@@ -47,7 +47,8 @@ class CLEAR_real_machine(AbstractMachineInterface):
             raise RuntimeError(reason)
         self.screen_backgrounds = {}
         self.chosen_ict = "CA.BCMTHZ/Acquisition#charge"
-        self.steps_readback_position = 0.0
+        # self.steps_readback_position = 0.0
+        # self.uvatt2_test_steps = 1000
         self.bpm_mode = BPMsMode.integral_threshold
         self.nsamples = nsamples
         self.electronmass = 0.51099895 # MeV/c^2
@@ -65,7 +66,6 @@ class CLEAR_real_machine(AbstractMachineInterface):
         self.client = pyda.SimpleClient(provider=pyda_japc.JapcProvider())
         self.rf_phase_nominal = 128 # degrees
         self.rf_phase_test = 108 # degrees
-        self.uvatt2_test_steps = 1000
         self.quadrupole_scaling_factor = 0.5
 
         # Bpms and correctors in beamline order
@@ -306,9 +306,10 @@ class CLEAR_real_machine(AbstractMachineInterface):
     #     return after_intensity_reset
 
     def get_beam_settings(self):
-        settings = {"energy": {}, "intensity": {}}
+        settings = {"energy": {}}
         settings["energy"]["mks11_phase"] = self.make_safe_float(self.client.get('CK.LL-MKS11/Setting').data['PhaseSh_SP'])
-        settings["intensity"]["uvatt2_position"] = self.make_safe_float(self.client.get('CO.TOWB.102.UVATT2/Setting').data['position'])
+        # settings["intensity"] = {}
+        # settings["intensity"]["uvatt2_position"] = self.make_safe_float(self.client.get('CO.TOWB.102.UVATT2/Setting').data['position'])
         return settings
 
     def restore_beam_settings(self, settings):
@@ -322,13 +323,13 @@ class CLEAR_real_machine(AbstractMachineInterface):
                 self.log(f"restore_beam_settings: {e}")
                 ok = False
 
-        position = self.make_safe_float(settings.get("intensity", {}).get("uvatt2_position"))
-        if np.isfinite(position):
-            try:
-                self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', position, description="UVATT2 position (restore)")
-            except RuntimeError as e:
-                self.log(f"restore_beam_settings: {e}")
-                ok = False
+        # position = self.make_safe_float(settings.get("intensity", {}).get("uvatt2_position"))
+        # if np.isfinite(position):
+        #     try:
+        #         self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', position, description="UVATT2 position (restore)")
+        #     except RuntimeError as e:
+        #         self.log(f"restore_beam_settings: {e}")
+        #         ok = False
         return ok
 
     def get_sequence(self):
