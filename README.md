@@ -168,7 +168,9 @@ Use Python 3.11 or newer and Poetry 2 or newer. From the repository directory, i
 
 ```bash
 poetry -C backends/clear update rf-track --lock
-poetry -C backends/clear install
+cd machine-interfaces/backends/esrf
+poetry install
+poetry run python ../../examples_tests/ESRF/testEnergy.py
 ```
 
 The shared Python package is named `machine_interfaces`; adapters have separate names such as `machine_interfaces_clear`. For example:
