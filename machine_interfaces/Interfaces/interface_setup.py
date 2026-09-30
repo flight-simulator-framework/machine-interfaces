@@ -1,6 +1,5 @@
 from importlib.metadata import entry_points
 
-
 INTERFACE_SETUP = {}
 ACCELERATOR_BRANDING = {}
 

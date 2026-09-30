@@ -37,13 +37,14 @@ def _branding_header(accelerator):
     header.setContentsMargins(0, 0, 0, 6)
     header.setSpacing(12)
     header.addStretch()
+    logo_width, logo_height = (200, 120) if len(branding) == 1 else (140, 58)
 
     for logo_path in branding:
         pixmap = QPixmap(str(logo_path))
         if pixmap.isNull():
             continue
         logo = QLabel()
-        logo.setPixmap(pixmap.scaled(140, 58, _keep_aspect_ratio(), _smooth_transformation()))
+        logo.setPixmap(pixmap.scaled(logo_width, logo_height, _keep_aspect_ratio(), _smooth_transformation()))
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter if hasattr(Qt, "AlignmentFlag") else Qt.AlignCenter)
         header.addWidget(logo)
 
