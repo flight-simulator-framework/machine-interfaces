@@ -28,7 +28,7 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             raise RuntimeError(reason)
         self.screen_backgrounds = {}
         self.settle_time = 2
-        self.energy_delta = energy_delta
+        self.energy_delta = 1.0 if energy_delta is None else energy_delta
         self.intensity_delta = intensity_delta
         self.text_unit = text_unit
         self.initial_energy_settings = {}
@@ -181,7 +181,8 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             target = self.initial_gridv
             self._set_and_verify(lambda: attribute.write(target), lambda: attribute.read().w_value, target, description="Grid voltage")
 
-    def change_energy(self, delta=1):
+    def change_energy(self, delta=None):
+        delta = self.energy_delta if delta is None else delta
         if delta is None or not np.isfinite(delta) or abs(delta)>=5: # limit to 10ms Text variation
             raise ValueError("Delta value is wrong.")
         "Change energy with extraction time in the booster"
