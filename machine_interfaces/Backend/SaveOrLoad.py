@@ -125,7 +125,7 @@ class SaveOrLoad():
         self._pick_and_load_data_dir(oper="dfs", button_ui=self.dfs_response_3, button_name="DFS Data Loaded")
 
     def _pick_and_load_wake_data(self):
-        labels = get_intensity_labels(getattr(self, "interface", None))
+        labels = getattr(self, "_intensity_labels", None) or get_intensity_labels(getattr(self, "interface", None))
         self._pick_and_load_data_dir(oper="wfs", button_ui=self.wfs_response_3, button_name=labels["data_loaded"])
 
     def _pick_and_load_traj_data(self):
@@ -167,7 +167,7 @@ class SaveOrLoad():
         self.log("Restoring sextupoles' state from machine status...")
         self.interface.restore_sextupoles_state(state)
         self.log("Sextupoles restored!")
-        labels = get_intensity_labels(self.interface)
+        labels = getattr(self, "_intensity_labels", None) or get_intensity_labels(self.interface)
         self.log(labels["restore_start"])
         self.interface.restore_beam_settings(state.get_beam_settings())
         self.log(labels["restore_done"])
@@ -566,6 +566,9 @@ class SaveOrLoad():
         self._loading_func(elements_list=self.bpms_list, filename="bpms.txt", loading_name="Load BPMs",
                            use_dialog=False, base_dir=folder)
 
+        if settings.get("beam_change_values") and hasattr(self, "_load_beam_change_values"):
+            self._load_beam_change_values(settings["beam_change_values"])
+
         paths = settings.get("data_dirs") or {}
         for key, path in paths.items():
             if not path:
@@ -592,8 +595,6 @@ class SaveOrLoad():
         if "beta" in settings: self.lineEdit_beta.setText(str(settings["beta"]))
         if "nsamples" in settings and hasattr(self, "nsamples_input"):
             self.nsamples_input.setText(str(settings["nsamples"]))
-        if settings.get("beam_change_values") and hasattr(self, "_load_beam_change_values"):
-            self._load_beam_change_values(settings["beam_change_values"])
         if "is_triangular" in settings: self.triangular_checkbox.setChecked(settings["is_triangular"])
         if "is_jitter_subtraction_checked" in settings: self.subtract_jitter_checkbox.setChecked(settings["is_jitter_subtraction_checked"])
         if "bpm_weights" in settings:

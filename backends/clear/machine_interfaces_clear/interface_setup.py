@@ -1,10 +1,50 @@
 from pathlib import Path
 
+QUADRUPOLE_SCALING = {'label': 'Quadrupole scaling',
+ 'tooltip': 'Multiply the quadrupole currents captured when the interface was opened by this factor. Restore '
+            'those currents afterward.',
+ 'test': {'label': 'Scaling factor', 'attribute': 'quadrupole_scaling_factor', 'default': 0.5},
+ 'labels': {'mode': 'Quadrupole scaling',
+            'status': 'Quadrupole scaling',
+            'quantity': 'Quadrupole scaling',
+            'short': 'Quadrupole scaling',
+            'correction': 'Quadrupole scaling correction',
+            'weight': 'Quadrupole scaling weight',
+            'weight_tooltip': 'Weight of the orbit-response change caused by scaling quadrupole currents. '
+                              'Higher values prioritize reducing this difference.',
+            'plot_title': 'Quadrupole scaling (Residual to response matrix reference)',
+            'measuring': 'Measuring orbit with scaled quadrupoles',
+            'changed': 'Quadrupole currents scaled',
+            'directory': 'quadrupole scaling',
+            'data_loaded': 'Quadrupole Scaling Data Loaded',
+            'same_settings': 'Orbit and quadrupole-scaling measurements have the same settings.',
+            'restore_error': 'Could not confirm the machine returned to its nominal RF phase and initial '
+                             'quadrupole currents.',
+            'restore_start': 'Restoring RF phase and quadrupole settings from machine status...',
+            'restore_done': 'RF phase and quadrupole settings restored!',
+            'jitter_tooltip': 'Use upstream BPMs to estimate incoming beam jitter and subtract it from '
+                              'downstream BPM readings. With energy changes or quadrupole scaling, real '
+                              'orbit changes may be mistaken for jitter and over-subtracted.',
+            'response_tooltip': 'Load response data measured with scaled quadrupole currents. This data is '
+                                'used for the quadrupole-scaling correction term.',
+            'measurement_button': 'Measure Quadrupole Scaling',
+            'measurement_tooltip': 'Measure the orbit change caused by scaling quadrupole currents.'}}
+
 INTERFACES = [{'display_name': 'CLEAR',
   'module': 'machine_interfaces_clear.InterfaceCLEAR',
   'class_name': 'CLEAR_real_machine',
   'clock_timezone': 'Europe/Zurich',
-  'beam_change': {'methods': ['Change MKS11 RF phase', 'Quadrupole scaling'],
+  'beam_change': {'methods': ['Change MKS11 RF phase', 'Quadrupole scaling', 'Changing RF phase and quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {
+                          'energy': QUADRUPOLE_SCALING,
+                          'actions': {'change_energy': 'change_quadrupoles',
+                                      'reset_energy': 'reset_quadrupoles'},
+                          'energy_offset': 0.0},
+                      'Changing RF phase and quadrupole scaling': {
+                          'intensity': QUADRUPOLE_SCALING,
+                          'actions': {'change_intensity': 'change_quadrupoles',
+                                      'reset_intensity': 'reset_quadrupoles'}}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Writes MKS11 PhaseSh_SP. Nominal is restored after the DFS '
                                         'measurement.',
@@ -12,40 +52,12 @@ INTERFACES = [{'display_name': 'CLEAR',
                                          'attribute': 'rf_phase_nominal',
                                          'default': 125.0},
                              'test': {'label': 'Test [deg]', 'attribute': 'rf_phase_test', 'default': 145.0}},
-                  'intensity': {'label': 'Quadrupole scaling',
-                                'tooltip': 'Multiply the quadrupole currents captured when the interface was '
-                                           'opened by this factor. Restore those currents afterward.',
-                                'test': {'label': 'Scaling factor',
-                                         'attribute': 'quadrupole_scaling_factor',
-                                         'default': 0.5},
-                                'labels': {'mode': 'Quadrupole scaling',
-                                           'status': 'Quadrupole scaling',
-                                           'quantity': 'Quadrupole scaling',
-                                           'short': 'Quadrupole scaling',
-                                           'correction': 'Quadrupole scaling correction',
-                                           'weight': 'Quadrupole scaling weight',
-                                           'weight_tooltip': 'Weight of the orbit-response change caused by '
-                                                             'scaling quadrupole currents. Higher values '
-                                                             'prioritize reducing this difference.',
-                                           'plot_title': 'Quadrupole scaling (Residual to response matrix '
-                                                         'reference)',
-                                           'measuring': 'Measuring orbit with scaled quadrupoles',
-                                           'changed': 'Quadrupole currents scaled',
-                                           'directory': 'quadrupole scaling',
-                                           'data_loaded': 'Quadrupole Scaling Data Loaded',
-                                           'same_settings': 'Orbit and quadrupole scaling measurements have '
-                                                            'the same settings.',
-                                           'restore_error': 'Could not confirm the machine returned to its '
-                                                            'nominal RF phase and initial quadrupole '
-                                                            'currents.',
-                                           'restore_start': 'Restoring RF phase and quadrupole settings from '
-                                                            'machine status...',
-                                           'restore_done': 'RF phase and quadrupole settings restored!',
-                                           'jitter_tooltip': 'Use upstream BPMs to estimate incoming beam '
-                                                             'jitter and subtract it from downstream BPM '
-                                                             'readings. With energy changes or quadrupole '
-                                                             'scaling, real orbit changes may be mistaken '
-                                                             'for jitter and over-subtracted.'}}},
+                  'intensity': {'label': 'Change intensity',
+                                'tooltip': 'Offsets the UVATT2 attenuator position by the specified number of '
+                                           'steps. Reset restores the position captured before the change.',
+                                'test': {'label': 'Test steps',
+                                         'attribute': 'uvatt2_test_steps',
+                                         'default': 1000.0}}},
   'settings': {'nsamples': 3},
   'units': {'corrector_strength': 'A',
             'quadrupole_strength': 'A',

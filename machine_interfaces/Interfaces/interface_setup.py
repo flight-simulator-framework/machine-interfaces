@@ -31,12 +31,15 @@ INTENSITY_LABELS = {
 }
 
 
-def get_intensity_labels(interface=None):
+def get_intensity_labels(interface=None, energy_method=None):
     interface_type = type(interface)
     for interfaces in INTERFACE_SETUP.values():
         for settings in interfaces:
             if (settings.get("module") == interface_type.__module__
                     and settings.get("class_name") == interface_type.__name__):
-                labels = settings.get("beam_change", {}).get("intensity", {}).get("labels", {})
+                beam_change = settings.get("beam_change", {})
+                profile = beam_change.get("method_settings", {}).get(energy_method, {})
+                intensity = profile.get("intensity", beam_change.get("intensity", {}))
+                labels = intensity.get("labels", {})
                 return {**INTENSITY_LABELS, **labels}
     return dict(INTENSITY_LABELS)

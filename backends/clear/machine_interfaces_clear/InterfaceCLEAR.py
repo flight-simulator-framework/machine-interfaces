@@ -47,8 +47,8 @@ class CLEAR_real_machine(AbstractMachineInterface):
             raise RuntimeError(reason)
         self.screen_backgrounds = {}
         self.chosen_ict = "CA.BCMTHZ/Acquisition#charge"
-        # self.steps_readback_position = 0.0
-        # self.uvatt2_test_steps = 1000
+        self.steps_readback_position = None
+        self.uvatt2_test_steps = 1000.0
         self.bpm_mode = BPMsMode.integral_threshold
         self.nsamples = nsamples
         self.electronmass = 0.51099895 # MeV/c^2
@@ -253,19 +253,22 @@ class CLEAR_real_machine(AbstractMachineInterface):
             f"(last readback={last_value})."
         )
 
-    def change_intensity(self, scale=None):
+    def change_quadrupoles(self, scale=None):
         if scale is None:
             scale = self.quadrupole_scaling_factor
-        scaled_optics_currents = self.initial_quad_currents * float(scale)
+        scale = float(scale)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Quadrupole scaling factor must be finite and positive.")
+        scaled_optics_currents = self.initial_quad_currents * scale
         for attempt in range(1, 10):
             if self.set_quadrupoles(self.quadrupoles, scaled_optics_currents):
                 return True
             if attempt < 10:
                 self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
-        raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 3 attempts.")
+        raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
 
-    def reset_intensity(self):
-        return self.change_intensity(scale=1.0)
+    def reset_quadrupoles(self):
+        return self.change_quadrupoles(scale=1.0)
 
     def change_energy(self):
         # this is not a charge change, but rf phase - based change in the energy, probably if you would
@@ -284,32 +287,32 @@ class CLEAR_real_machine(AbstractMachineInterface):
         print(f"Energy has been reset to {after_energy_reset}.")
         return after_energy_reset
 
-    # REAL CHANGE INTENSITY METHODS FOR CLEAR:
-    # def change_intensity(self):
-    #     if np.isclose(float(self.uvatt2_test_steps), 0.0):
-    #         raise RuntimeError("uvatt2_test_steps is 0.")
-    #     current_position = self.client.get('CO.TOWB.102.UVATT2/Setting').data['position']
-    #     self.steps_readback_position = current_position
-    #     self.steps_readback_position_min = self.client.get('CO.TOWB.102.UVATT2/Setting').data['position_min']
-    #     self.steps_readback_position_max =self.client.get('CO.TOWB.102.UVATT2/Setting').data['position_max']
-    #     current_settings_steps = self.steps_readback_position
-    #     new_laser_settings = current_settings_steps + float(self.uvatt2_test_steps)
-    #     self.log(f"Changing intensity to {new_laser_settings}... Current value is {self.steps_readback_position}.")
-    #     after_intensity_change = self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', new_laser_settings, description="UVATT2 position (test)")
-    #     self.log(f"The new laser settings has been set to {after_intensity_change}. Current value was {self.steps_readback_position}.")
-    #     return self
-    #
-    # def reset_intensity(self):
-    #     print(f"Resetting intensity to {self.steps_readback_position}...")
-    #     after_intensity_reset = self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', float(self.steps_readback_position), description="UVATT2 position (nominal)")
-    #     print(f"Intensity steps has been reset to {after_intensity_reset}.")
-    #     return after_intensity_reset
+    def change_intensity(self):
+        steps = float(self.uvatt2_test_steps)
+        if not np.isfinite(steps) or np.isclose(steps, 0.0):
+            raise ValueError("UVATT2 test steps must be finite and nonzero.")
+        settings = self.client.get('CO.TOWB.102.UVATT2/Setting').data
+        if self.steps_readback_position is None:
+            self.steps_readback_position = float(settings['position'])
+        target = self.steps_readback_position + steps
+        lower = float(settings['position_min'])
+        upper = float(settings['position_max'])
+        if not np.isfinite(target) or not lower <= target <= upper:
+            raise ValueError(f"UVATT2 target {target} is outside [{lower}, {upper}].")
+        return self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', target, description="UVATT2 position (test)")
+
+    def reset_intensity(self):
+        if self.steps_readback_position is None:
+            return True
+        restored = self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', self.steps_readback_position, description="UVATT2 position (nominal)")
+        self.steps_readback_position = None
+        return restored
 
     def get_beam_settings(self):
         settings = {"energy": {}}
         settings["energy"]["mks11_phase"] = self.make_safe_float(self.client.get('CK.LL-MKS11/Setting').data['PhaseSh_SP'])
-        # settings["intensity"] = {}
-        # settings["intensity"]["uvatt2_position"] = self.make_safe_float(self.client.get('CO.TOWB.102.UVATT2/Setting').data['position'])
+        settings["intensity"] = {}
+        settings["intensity"]["uvatt2_position"] = self.make_safe_float(self.client.get('CO.TOWB.102.UVATT2/Setting').data['position'])
         return settings
 
     def restore_beam_settings(self, settings):
@@ -323,13 +326,14 @@ class CLEAR_real_machine(AbstractMachineInterface):
                 self.log(f"restore_beam_settings: {e}")
                 ok = False
 
-        # position = self.make_safe_float(settings.get("intensity", {}).get("uvatt2_position"))
-        # if np.isfinite(position):
-        #     try:
-        #         self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', position, description="UVATT2 position (restore)")
-        #     except RuntimeError as e:
-        #         self.log(f"restore_beam_settings: {e}")
-        #         ok = False
+        position = self.make_safe_float(settings.get("intensity", {}).get("uvatt2_position"))
+        if np.isfinite(position):
+            try:
+                self._set_and_verify('CO.TOWB.102.UVATT2/Setting', 'position', position, description="UVATT2 position (restore)")
+                self.steps_readback_position = None
+            except RuntimeError as e:
+                self.log(f"restore_beam_settings: {e}")
+                ok = False
         return ok
 
     def get_sequence(self):
