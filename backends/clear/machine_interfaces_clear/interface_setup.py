@@ -1,13 +1,13 @@
 from pathlib import Path
 
-QUADRUPOLE_SCALING = {'label': 'Quadrupole scaling',
+QUADRUPOLE_SCALING = {'label': 'Change energy',
  'tooltip': 'Multiply the quadrupole currents captured when the interface was opened by this factor. Restore '
             'those currents afterward.',
  'test': {'label': 'Scaling factor', 'attribute': 'quadrupole_scaling_factor', 'default': 0.5},
  'labels': {'mode': 'Quadrupole scaling',
-            'status': 'Quadrupole scaling',
-            'quantity': 'Quadrupole scaling',
-            'short': 'Quadrupole scaling',
+            'status_mode_name': 'Quadrupole scaling',
+            'mode_option_label': 'Quadrupole scaling',
+            'compact_label': 'Quadrupole scaling',
             'correction': 'Quadrupole scaling correction',
             'weight': 'Quadrupole scaling weight',
             'weight_tooltip': 'Weight of the orbit-response change caused by scaling quadrupole currents. '
@@ -42,7 +42,7 @@ INTERFACES = [{'display_name': 'CLEAR',
                                       'reset_energy': 'reset_quadrupoles'},
                           'energy_offset': 0.0},
                       'Changing RF phase and quadrupole scaling': {
-                          'intensity': QUADRUPOLE_SCALING,
+                          'intensity': {**QUADRUPOLE_SCALING, 'label': 'Change energy 2'},
                           'actions': {'change_intensity': 'change_quadrupoles',
                                       'reset_intensity': 'reset_quadrupoles'}}},
                   'energy': {'label': 'Change energy',
@@ -78,6 +78,8 @@ INTERFACES = [{'display_name': 'CLEAR',
   'class_name': 'InterfaceCLEAR_RFTrack',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
                              'test': {'label': 'Pref factor',

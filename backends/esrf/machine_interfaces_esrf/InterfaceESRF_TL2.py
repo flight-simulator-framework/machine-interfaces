@@ -29,7 +29,7 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
         self.screen_backgrounds = {}
         self.settle_time = 2
         self.energy_delta = 1.0 if energy_delta is None else energy_delta
-        self.intensity_delta = intensity_delta
+        self.intensity_delta = -1.0 if intensity_delta is None else intensity_delta
         self.text_unit = text_unit
         self.initial_energy_settings = {}
         self.initial_gridv = None
@@ -165,7 +165,7 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             "pulsev": float(tango.AttributeProxy('elin/beam/run/pulsev').read().w_value),
         }
 
-    def change_intensity(self, delta=-1):
+    def change_intensity(self, delta=None):
         delta = self.intensity_delta if delta is None else delta
         if delta is None or not np.isfinite(delta):
             raise ValueError("Set intensity_delta in V.")

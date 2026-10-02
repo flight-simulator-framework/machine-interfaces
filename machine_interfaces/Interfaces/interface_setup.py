@@ -13,9 +13,9 @@ for registration in sorted(entry_points(group="flight_simulator.interfaces"), ke
 
 INTENSITY_LABELS = {
     "mode": "Changed intensity",
-    "status": "Wakefield",
-    "quantity": "Wakefield",
-    "short": "WFS",
+    "status_mode_name": "Wakefield",
+    "mode_option_label": "Wakefield",
+    "compact_label": "WFS",
     "correction": "Wakefield-Free Steering",
     "weight": "Wakefield weight",
     "weight_tooltip": "<html><head/><body><p>Weight of the WFS term. </p><p>Higher value makes the correction prioritize reducing intensity-dependent orbit changes. </p></body></html>",

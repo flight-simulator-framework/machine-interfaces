@@ -1,10 +1,19 @@
 from pathlib import Path
 
+QUADRUPOLE_SCALING = {
+    'label': 'Change energy',
+    'tooltip': 'Multiplicative factor for the quadrupole settings: 1.0 leaves them unchanged; '
+               '0.9 scales them to 90% of their reference values.',
+    'test': {'label': 'Scaling factor', 'attribute': 'quadrupole_scaling_factor', 'default': 0.5},
+}
+
 INTERFACES = [{'display_name': 'FACET2 Linac RFTrack',
   'module': 'machine_interfaces_facet2.InterfaceFACET2_Linac_RFTrack',
   'class_name': 'InterfaceFACET2_Linac_RFTrack',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
                              'test': {'label': 'Pref factor',
@@ -28,6 +37,8 @@ INTERFACES = [{'display_name': 'FACET2 Linac RFTrack',
   'class_name': 'InterfaceFACET2_Linac',
   'clock_timezone': 'America/Los_Angeles',
   'beam_change': {'methods': ['Change feedback-vernier setpoints', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Writes FACET2 BC11, BC14 and BC20 feedback-vernier setpoints. Reset '
                                         'returns all three to zero.',

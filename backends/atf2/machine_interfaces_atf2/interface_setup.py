@@ -1,10 +1,47 @@
 from pathlib import Path
 
+QUADRUPOLE_SCALING = {'label': 'Change energy',
+ 'tooltip': 'Multiply the quadrupole currents captured when the interface was opened by this factor. Restore '
+            'those currents afterward.',
+ 'test': {'label': 'Scaling factor', 'attribute': 'quadrupole_scaling_factor', 'default': 0.5},
+ 'labels': {'mode': 'Quadrupole scaling',
+            'status_mode_name': 'Quadrupole scaling',
+            'mode_option_label': 'Quadrupole scaling',
+            'compact_label': 'Quadrupole scaling',
+            'correction': 'Quadrupole scaling correction',
+            'weight': 'Quadrupole scaling weight',
+            'weight_tooltip': 'Weight of the orbit-response change caused by scaling quadrupole currents. '
+                              'Higher values prioritize reducing this difference.',
+            'plot_title': 'Quadrupole scaling (Residual to response matrix reference)',
+            'measuring': 'Measuring orbit with scaled quadrupoles',
+            'changed': 'Quadrupole currents scaled',
+            'directory': 'quadrupole scaling',
+            'data_loaded': 'Quadrupole Scaling Data Loaded',
+            'same_settings': 'Orbit and quadrupole-scaling measurements have the same settings.',
+            'restore_error': 'Could not confirm the machine returned to its nominal RF phase and initial '
+                             'quadrupole currents.',
+            'restore_start': 'Restoring RF phase and quadrupole settings from machine status...',
+            'restore_done': 'RF phase and quadrupole settings restored!',
+            'jitter_tooltip': 'Use upstream BPMs to estimate incoming beam jitter and subtract it from '
+                              'downstream BPM readings. With energy changes or quadrupole scaling, real '
+                              'orbit changes may be mistaken for jitter and over-subtracted.',
+            'response_tooltip': 'Load response data measured with scaled quadrupole currents. This data is '
+                                'used for the quadrupole-scaling correction term.',
+            'measurement_button': 'Measure Quadrupole Scaling',
+            'measurement_tooltip': 'Measure the orbit change caused by scaling quadrupole currents.'}}
+
 INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'module': 'machine_interfaces_atf2.InterfaceATF2_DR',
   'class_name': 'InterfaceATF2_DR',
   'clock_timezone': 'Asia/Tokyo',
   'beam_change': {'methods': ['Change RF frequency (RAMP/PL4)', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {
+                          'energy': QUADRUPOLE_SCALING,
+                          'actions': {'change_energy': 'change_quadrupoles',
+                                      'reset_energy': 'reset_quadrupoles'},
+                          'energy_offset': 0.0},
+                  },
                   'energy': {'label': 'Change energy',
                              'tooltip': 'The frequency offset of RAMP/PL4 is used to calculate dP/P.',
                              'test': {'label': 'Δf [kHz]',
@@ -16,6 +53,7 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
                                 'test': {'label': 'Test factor',
                                          'attribute': 'test_laser_intensity',
                                          'default': 0.125}}},
+
   'settings': {'nsamples': 3},
   'units': {'corrector_strength': 'T*mm', 'bpm_position': 'mm', 'sysid_corrector_kick': 0.01},
   'bounds': {'emit_x_norm': [1.0, 10.0],
@@ -30,6 +68,8 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'class_name': 'InterfaceATF2_DR_RFTrack',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
                              'test': {'label': 'Pref factor',
@@ -54,6 +94,8 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'class_name': 'InterfaceATF2_Ext',
   'clock_timezone': 'Asia/Tokyo',
   'beam_change': {'methods': ['Change RF frequency (RAMP/PL4)', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'The frequency offset of RAMP/PL4 is used to calculate dP/P.',
                              'test': {'label': 'Δf [kHz]',
@@ -84,6 +126,8 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'class_name': 'InterfaceATF2_Ext_RFTrack',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
                              'test': {'label': 'Pref factor',
@@ -111,6 +155,8 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'class_name': 'InterfaceATF2_Linac',
   'clock_timezone': 'Asia/Tokyo',
   'beam_change': {'methods': ['Change CM1L RF phase', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Writes CM1L RF phase. Nominal is restored after the DFS '
                                         'measurement.',
@@ -136,6 +182,8 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'class_name': 'InterfaceATF2_LinacBT',
   'clock_timezone': 'Asia/Tokyo',
   'beam_change': {'methods': ['Change CM1L RF phase', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Writes CM1L RF phase. Nominal is restored after the DFS '
                                         'measurement.',
@@ -155,6 +203,8 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'class_name': 'InterfaceATF2_Linac_RFTrack',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+                  'method_settings': {
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
                              'test': {'label': 'Pref factor',
