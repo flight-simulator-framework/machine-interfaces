@@ -6,6 +6,7 @@ from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachi
 from collections import defaultdict
 from machine_interfaces_atf2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
 from machine_interfaces_atf2.MagKi import load_mag_ki
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
 class CurrentDropToZeroError(RuntimeError):
     def __init__(self, message, *, target=None, readback=None, magnets=None):
@@ -219,6 +220,8 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             # Use the alias itself for mover PVs (e.g. QM16FF:MAG:DES:X).
             self.qmag_pv[alias] = self._build_qmag_pv_names(alias)
         self.bg_shots = int(bg_shots)
+        self.quadrupole_scaling_factor = 0.5
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def current_to_k1l(self, name, current_A):
         current_A = float(current_A)
@@ -839,21 +842,41 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
     def _pv_readback(self, pv_name):
         return lambda: self.make_safe_float(PV(pv_name).get(), default=np.nan)
 
-    def change_energy(self, delta_freq=None):
-        if delta_freq is None:
-            delta_freq = self.energy_frequency_offset_khz
-        self._set_and_verify(lambda: PV('RAMP:CONTROL_ON_SW').put(1), self._pv_readback('RAMP:CONTROL_ON_SW'), 1, description="RAMP:CONTROL_ON_SW (energy change)", tolerance=1e-3)
-        # delta_freq in kHz
-        ### delta_freq MUST MATCH :MI2: to EPICS --> means "MINUS2"
-        # PV('RAMP:MI2:ONOFF_SW').put(1)
-        self._set_and_verify(lambda: PV('RAMP:PL4:ONOFF_SW').put(1), self._pv_readback('RAMP:PL4:ONOFF_SW'), 1, description="RAMP:PL4:ONOFF_SW (energy change)", tolerance=1e-3)
-        DR_freq = 714e3  # 714 MHz in kHz
-        DR_momentum_compaction = 2.1e-3
-        dP_P = -float(delta_freq) / DR_freq / DR_momentum_compaction
-        return dP_P
+    def scale_quadrupoles(self, scale=None):
+        if scale is None:
+            scale = self.quadrupole_scaling_factor
+        scale = float(scale)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Quadrupole scaling factor must be finite and positive.")
+        scaled_optics_currents = self.initial_quad_currents * scale
+        for attempt in range(1, 10):
+            if self.set_quadrupoles(self.quadrupoles, scaled_optics_currents):
+                return True
+            if attempt < 10:
+                self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
+        raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
 
-    def reset_energy(self):
-        self._set_and_verify(lambda: PV('RAMP:CONTROL_OFF_SW').put(0), self._pv_readback('RAMP:CONTROL_ON_SW'), 0, description="RAMP:CONTROL_ON_SW (energy reset)", tolerance=1e-3)
+    def change_energy(self, delta_freq=None, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            if delta_freq is None:
+                delta_freq = self.energy_frequency_offset_khz
+            self._set_and_verify(lambda: PV('RAMP:CONTROL_ON_SW').put(1), self._pv_readback('RAMP:CONTROL_ON_SW'), 1, description="RAMP:CONTROL_ON_SW (energy change)", tolerance=1e-3)
+            # delta_freq in kHz
+            ### delta_freq MUST MATCH :MI2: to EPICS --> means "MINUS2"
+            # PV('RAMP:MI2:ONOFF_SW').put(1)
+            self._set_and_verify(lambda: PV('RAMP:PL4:ONOFF_SW').put(1), self._pv_readback('RAMP:PL4:ONOFF_SW'), 1, description="RAMP:PL4:ONOFF_SW (energy change)", tolerance=1e-3)
+            DR_freq = 714e3  # 714 MHz in kHz
+            DR_momentum_compaction = 2.1e-3
+            dP_P = -float(delta_freq) / DR_freq / DR_momentum_compaction
+            return dP_P
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            return self.scale_quadrupoles()
+
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self._set_and_verify(lambda: PV('RAMP:CONTROL_OFF_SW').put(0), self._pv_readback('RAMP:CONTROL_ON_SW'), 0, description="RAMP:CONTROL_ON_SW (energy reset)", tolerance=1e-3)
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            return self.scale_quadrupoles(scale = 1.0)
 
     def change_intensity(self, laserintensity=None):
         if laserintensity is None:

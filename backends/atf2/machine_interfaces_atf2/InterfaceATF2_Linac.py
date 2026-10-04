@@ -4,7 +4,7 @@ import time, math
 from machine_interfaces.Backend.LogConsole import LogConsole
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 from typing import Dict, Optional
-
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 from epics import PV, ca
 
 '''
@@ -139,6 +139,8 @@ class InterfaceATF2_Linac(AbstractMachineInterface):
         self.laser_intensity2 = PV('RFGun:LaserIntensity2:Read').get()
         self.test_laser_intensity = 0.15
         self.machine_name = "ATF2"
+        self.quadrupole_scaling_factor = 0.5
+        #self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def log_messages(self,console):
         self.log=console or print
@@ -153,16 +155,22 @@ class InterfaceATF2_Linac(AbstractMachineInterface):
     def _pv_readback(self, pv_name):
         return lambda: self.make_safe_float(PV(pv_name).get(), default=np.nan)
 
-    def change_energy(self):
-        target = self.cm1l_test_phase
-        if np.isclose(float(target), float(self.phase_kl1)):
-            raise RuntimeError(f"cm1l_test_phase ({target}) equals phase_kl1 ({self.phase_kl1}). DFS measured at this setting is not useful.")
-        self._set_and_verify(lambda: PV('CM1L:phaseWrite').put(target), self._pv_readback('CM1L:phaseRead'), target, description="CM1L:phaseRead (energy change)", tolerance=1e-3)
-        dP_P = 0.0 # we don't really know it
-        return dP_P
+    def change_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            target = self.cm1l_test_phase
+            if np.isclose(float(target), float(self.phase_kl1)):
+                raise RuntimeError(f"cm1l_test_phase ({target}) equals phase_kl1 ({self.phase_kl1}). DFS measured at this setting is not useful.")
+            self._set_and_verify(lambda: PV('CM1L:phaseWrite').put(target), self._pv_readback('CM1L:phaseRead'), target, description="CM1L:phaseRead (energy change)", tolerance=1e-3)
+            dP_P = 0.0 # we don't really know it
+            return dP_P
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            raise NotImplementedError("Methods get_quadrupoles and set_quadrupoles not implemented yet.")
 
-    def reset_energy(self):
-        self._set_and_verify(lambda: PV('CM1L:phaseWrite').put(self.phase_kl1), self._pv_readback('CM1L:phaseRead'), self.phase_kl1, description="CM1L:phaseRead (energy reset)", tolerance=1e-3)
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self._set_and_verify(lambda: PV('CM1L:phaseWrite').put(self.phase_kl1), self._pv_readback('CM1L:phaseRead'), self.phase_kl1, description="CM1L:phaseRead (energy reset)", tolerance=1e-3)
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            raise NotImplementedError("Methods get_quadrupoles and set_quadrupoles not implemented yet.")
 
     def change_intensity(self, intensity=None):
         if intensity is None:
@@ -286,8 +294,6 @@ class InterfaceATF2_Linac(AbstractMachineInterface):
                 x.append(a[self.bpm_indexes, 1])
                 y.append(a[self.bpm_indexes, 2])
                 tmit.append(status * a[self.bpm_indexes, 3])
-                for name in names:
-                    print(f"{name} = {self.bpm_indexes[name]}")
             time.sleep(0.35)
 
         bpms = {

@@ -35,6 +35,11 @@ INTERFACES = [{'display_name': 'CLEAR',
   'class_name': 'CLEAR_real_machine',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change MKS11 RF phase', 'Quadrupole scaling', 'Changing RF phase and quadrupole scaling'],
+                  'method_ids': {
+                      'Change MKS11 RF phase': 'default',
+                      'Quadrupole scaling': 'quadrupole_scaling',
+                      'Changing RF phase and quadrupole scaling': 'both',
+                  },
                   'method_settings': {
                       'Quadrupole scaling': {
                           'energy': QUADRUPOLE_SCALING,
@@ -78,6 +83,10 @@ INTERFACES = [{'display_name': 'CLEAR',
   'class_name': 'InterfaceCLEAR_RFTrack',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+                  'method_ids': {
+                      'Change Pref': 'default',
+                      'Quadrupole scaling': 'quadrupole_scaling',
+                  },
                   'method_settings': {
                       'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',

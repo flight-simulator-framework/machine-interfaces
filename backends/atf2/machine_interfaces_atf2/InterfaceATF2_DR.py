@@ -1,18 +1,8 @@
 import numpy as np
 import time, math,os
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
-
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 from epics import PV, ca, caget
-
-'''
-TO IMPLEMENT!!!
-
-def get_quadrupoles(self):
-    pass
-def set_quadrupoles(self):
-    pass
-
-'''
 
 class InterfaceATF2_DR(AbstractMachineInterface):
     def get_name(self):
@@ -230,19 +220,27 @@ class InterfaceATF2_DR(AbstractMachineInterface):
     def _pv_readback(self, pv_name):
         return lambda: self.make_safe_float(PV(pv_name).get(), default=np.nan)
 
-    def change_energy(self):
-        self._set_and_verify(lambda: PV('RAMP:CONTROL_ON_SW').put(1), self._pv_readback('RAMP:CONTROL_ON_SW'), 1, description="RAMP:CONTROL_ON_SW (energy change)", tolerance=1e-3)
-        ### delta_freq MUST MATCH :MI2: to EPICS --> means "MINUS2"
-        delta_freq = float(self.energy_frequency_offset_khz)  # kHz
-        # PV('RAMP:MI2:ONOFF_SW').put(1)
-        self._set_and_verify(lambda: PV('RAMP:PL4:ONOFF_SW').put(1), self._pv_readback('RAMP:PL4:ONOFF_SW'), 1, description="RAMP:PL4:ONOFF_SW (energy change)", tolerance=1e-3)
-        DR_freq = 714e3; # 714 MHz in kHz
-        DR_momentum_compaction = 2.1e-3
-        dP_P = -delta_freq / DR_freq / DR_momentum_compaction
-        return dP_P
+    def change_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self._set_and_verify(lambda: PV('RAMP:CONTROL_ON_SW').put(1), self._pv_readback('RAMP:CONTROL_ON_SW'), 1, description="RAMP:CONTROL_ON_SW (energy change)", tolerance=1e-3)
+            ### delta_freq MUST MATCH :MI2: to EPICS --> means "MINUS2"
+            delta_freq = float(self.energy_frequency_offset_khz)  # kHz
+            # PV('RAMP:MI2:ONOFF_SW').put(1)
+            self._set_and_verify(lambda: PV('RAMP:PL4:ONOFF_SW').put(1), self._pv_readback('RAMP:PL4:ONOFF_SW'), 1, description="RAMP:PL4:ONOFF_SW (energy change)", tolerance=1e-3)
+            DR_freq = 714e3 # 714 MHz in kHz
+            DR_momentum_compaction = 2.1e-3
+            dP_P = -delta_freq / DR_freq / DR_momentum_compaction
+            return dP_P
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            raise NotImplementedError("Methods get_quadrupoles and set_quadrupoles are not implemented.")
+            # return self.scale_quadrupoles()
 
-    def reset_energy(self):
-        self._set_and_verify(lambda: PV('RAMP:CONTROL_OFF_SW').put(0), self._pv_readback('RAMP:CONTROL_ON_SW'), 0, description="RAMP:CONTROL_ON_SW (energy reset)", tolerance=1e-3)
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self._set_and_verify(lambda: PV('RAMP:CONTROL_OFF_SW').put(0), self._pv_readback('RAMP:CONTROL_ON_SW'), 0, description="RAMP:CONTROL_ON_SW (energy reset)", tolerance=1e-3)
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            raise NotImplementedError("Methods get_quadrupoles and set_quadrupoles are not implemented.")
+            #return self.scale_quadrupoles(scale=1.0)
 
     def change_intensity(self, intensity=None):
         if intensity is None:

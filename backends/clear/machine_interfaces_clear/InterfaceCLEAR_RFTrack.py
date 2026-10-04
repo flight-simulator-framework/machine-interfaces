@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 import os
 from machine_interfaces.Backend.State import State
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
 class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
     def get_name(self):
@@ -99,6 +100,8 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         '''test of bpm invertion'''
         self.invert_bpm = True
         self.__track_bunch()
+        self.quadrupole_scaling_factor = 0.5
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def __setup_beam0(self):
         T = rft.Bunch6d_twiss()
@@ -294,17 +297,46 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
             raise RuntimeError("Invalid beam factors")
         return gamma_rel, beta_rel, beta_gamma
 
-    def change_energy(self):
-        self.__setup_beam1()
-        self.__track_bunch()
-        self._beam_mode = "energy_changed"
-        dP_P = self.dfs_test_energy - 1.0
-        return dP_P
+    def scale_quadrupoles(self, scale=None):
+        if scale is None:
+            scale = self.quadrupole_scaling_factor
+        scale = float(scale)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Quadrupole scaling factor must be finite and positive.")
+        scaled_optics_currents = self.initial_quad_currents * scale
+        self.set_quadrupoles(self.quadrupoles, scaled_optics_currents)
 
-    def reset_energy(self):
-        self.__setup_beam0()
-        self.__track_bunch()
-        self._beam_mode = "nominal"
+    def change_energy(self, method = EnergyChangeMethod.DEFAULT, which_method = 1):
+        if method == EnergyChangeMethod.DEFAULT:
+            self.__setup_beam1()
+            self.__track_bunch()
+            self._beam_mode = "energy_changed"
+            dP_P = self.dfs_test_energy - 1.0
+            return dP_P
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            self.scale_quadrupoles()
+            return 0.0
+        elif method == EnergyChangeMethod.BOTH:
+            if which_method == 1:
+                return self.change_energy(method=EnergyChangeMethod.DEFAULT)
+            if which_method == 2:
+                self.scale_quadrupoles()
+                return 0.0
+            return
+
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT, *, which_method=1):
+        if method == EnergyChangeMethod.DEFAULT:
+            self.__setup_beam0()
+            self.__track_bunch()
+            self._beam_mode = "nominal"
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            return self.scale_quadrupoles(scale = 1.0)
+        elif method == EnergyChangeMethod.BOTH:
+            if which_method == 1:
+                return self.reset_energy(method=EnergyChangeMethod.DEFAULT)
+            if which_method == 2:
+                return self.scale_quadrupoles(scale=1.0)
+            return
 
     def change_intensity(self): #reduced charge
         self.__setup_beam2()
@@ -797,9 +829,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
             if not isinstance(elements, list):
                 elements = [elements]
             for element in elements:
-                gradient = self._gradient_sign(quadrupole_name) * self.get_grad(
-                    float(current_A), element.get_length()
-                )
+                gradient = self._gradient_sign(quadrupole_name) * self.get_grad(float(current_A), element.get_length())
                 element.set_gradient(gradient)
         if track:
             self.__track_bunch()

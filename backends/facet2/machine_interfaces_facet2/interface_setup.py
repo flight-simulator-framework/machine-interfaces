@@ -12,6 +12,10 @@ INTERFACES = [{'display_name': 'FACET2 Linac RFTrack',
   'class_name': 'InterfaceFACET2_Linac_RFTrack',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+                  'method_ids': {
+                      'Change Pref': 'default',
+                      'Quadrupole scaling': 'quadrupole_scaling',
+                  },
                   'method_settings': {
                       'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
@@ -39,6 +43,10 @@ INTERFACES = [{'display_name': 'FACET2 Linac RFTrack',
   'beam_change': {'methods': ['Change feedback-vernier setpoints', 'Quadrupole scaling'],
                   'method_settings': {
                       'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
+                    'method_ids': {
+                        'Change feedback-vernier setpoints': 'default',
+                        'Quadrupole scaling': 'quadrupole_scaling',
+                    },
                   'energy': {'label': 'Change energy',
                              'tooltip': 'Writes FACET2 BC11, BC14 and BC20 feedback-vernier setpoints. Reset '
                                         'returns all three to zero.',

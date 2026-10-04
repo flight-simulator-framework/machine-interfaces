@@ -7,6 +7,8 @@ from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachi
 from machine_interfaces_atf2.MagKi import load_mag_ki
 # from . import ipbsm_calc
 # from .knobs import KnobSystem
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
+
 class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
     def get_name(self):
         return 'ATF2_Ext_RFT'
@@ -64,9 +66,9 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         #self.lattice.scatter_elements('quadrupole', 0.500, 0.500, 0.500, 0, 0, 0, 'center')
         #self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
 
-        for el in self._map_quadrupoles_names_from_lattice("QD18X"):
-                            # dx # dy #dz #roll #pitch #yaw
-            el.set_offsets(0.5, 0.5, 0.0, 5, 0.0, 0.0, "center")  # 0.5 mm dx, meters+radians
+        # for el in self._map_quadrupoles_names_from_lattice("QD18X"):
+        #                     # dx # dy #dz #roll #pitch #yaw
+        #     el.set_offsets(0.5, 0.5, 0.0, 5, 0.0, 0.0, "center")  # 0.5 mm dx, meters+radians
 
         # ----------------------------
         # Knobs (linear / nonlinear)
@@ -89,6 +91,8 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
                           'QF17X', 'QK4X', 'QD18X', 'QF19X', 'QD20X', 'QF21X', 'QM16FF', 'QM15FF', 'QM14FF', 'QM13FF',
                           'QM12FF', 'QM11FF', 'QD10BFF', 'QD10AFF', 'QF9BFF', 'QF9AFF', 'QD8FF', 'QF7FF', 'QD6FF',
                           'QF5BFF', 'QF5AFF', 'QD4BFF', 'QD4AFF', 'QF3FF', 'QD2BFF', 'QD2AFF', 'QF1FF', 'QD0FF']
+        self.quadrupole_scaling_factor = 0.5
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
 
     def _original_quad_name(self, name):
@@ -237,17 +241,33 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         self.__setup_beam0()
         self.__track_bunch()
 
-    def change_energy(self):
-        self.__setup_beam1()
-        self.__track_bunch()
-        self._beam_mode = "energy_changed"
-        dP_P = self.dfs_test_energy - 1.0
-        return dP_P
+    def scale_quadrupoles(self, scale=None):
+        if scale is None:
+            scale = self.quadrupole_scaling_factor
+        scale = float(scale)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Quadrupole scaling factor must be finite and positive.")
+        scaled_optics_currents = self.initial_quad_currents * scale
+        self.set_quadrupoles(self.quadrupoles, scaled_optics_currents)
 
-    def reset_energy(self):
-        self.__setup_beam0()
-        self.__track_bunch()
-        self._beam_mode = "nominal"
+    def change_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self.__setup_beam1()
+            self.__track_bunch()
+            self._beam_mode = "energy_changed"
+            dP_P = self.dfs_test_energy - 1.0
+            return dP_P
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            self.scale_quadrupoles()
+            return 0.0
+
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self.__setup_beam0()
+            self.__track_bunch()
+            self._beam_mode = "nominal"
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            return self.scale_quadrupoles(scale = 1.0)
 
     def change_intensity(self):  # reduced charge
         self.__setup_beam2()

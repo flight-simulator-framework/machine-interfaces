@@ -15,6 +15,7 @@ except ImportError:
 
 from machine_interfaces_clear import config
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
 class BPMsMode(Enum):
     peak = "peak"
@@ -253,7 +254,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
             f"(last readback={last_value})."
         )
 
-    def change_quadrupoles(self, scale=None):
+    def scale_quadrupoles(self, scale=None):
         if scale is None:
             scale = self.quadrupole_scaling_factor
         scale = float(scale)
@@ -267,25 +268,38 @@ class CLEAR_real_machine(AbstractMachineInterface):
                 self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
         raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
 
-    def reset_quadrupoles(self):
-        return self.change_quadrupoles(scale=1.0)
+    def change_energy(self, method = EnergyChangeMethod.DEFAULT, *, which_method=1):
+        if method == EnergyChangeMethod.DEFAULT:
+            if np.isclose(float(self.rf_phase_test), float(self.rf_phase_nominal)):
+                raise RuntimeError(f"RF phase test ({self.rf_phase_test}) = RF phase nominal ({self.rf_phase_nominal}).")
+            energy_readback = self.client.get('CK.LL-MKS11/Setting').data['PhaseSh_SP']
+            self.log(f"Value before changing energy: {energy_readback}")
+            new_energy = self._set_and_verify('CK.LL-MKS11/Setting', 'PhaseSh_SP', float(self.rf_phase_test), description="RF phase (test)")
+            self.log(f"Value after changing energy: {new_energy}")
+            return new_energy
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            return self.scale_quadrupoles()
+        elif method == EnergyChangeMethod.BOTH:
+            if which_method == 1:
+                return self.change_energy(method=EnergyChangeMethod.DEFAULT)
+            if which_method == 2:
+                return self.scale_quadrupoles()
+            return
 
-    def change_energy(self):
-        # this is not a charge change, but rf phase - based change in the energy, probably if you would
-        # use both scaling quadrupoles and this method, the correction would be even better
-        if np.isclose(float(self.rf_phase_test), float(self.rf_phase_nominal)):
-            raise RuntimeError(f"RF phase test ({self.rf_phase_test}) = RF phase nominal ({self.rf_phase_nominal}).")
-        energy_readback = self.client.get('CK.LL-MKS11/Setting').data['PhaseSh_SP']
-        self.log(f"Value before changing energy: {energy_readback}")
-        new_energy = self._set_and_verify('CK.LL-MKS11/Setting', 'PhaseSh_SP', float(self.rf_phase_test), description="RF phase (test)")
-        self.log(f"Value after changing energy: {new_energy}")
-        return new_energy
-
-    def reset_energy(self):
-        print(f"Resetting energy to {self.rf_phase_nominal}...")
-        after_energy_reset = self._set_and_verify('CK.LL-MKS11/Setting', 'PhaseSh_SP', float(self.rf_phase_nominal), description="RF phase (nominal)")
-        print(f"Energy has been reset to {after_energy_reset}.")
-        return after_energy_reset
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT, *, which_method=1): # the * says that latter variables need to have a name
+        if method == EnergyChangeMethod.DEFAULT:
+            print(f"Resetting energy to {self.rf_phase_nominal}...")
+            after_energy_reset = self._set_and_verify('CK.LL-MKS11/Setting', 'PhaseSh_SP', float(self.rf_phase_nominal), description="RF phase (nominal)")
+            print(f"Energy has been reset to {after_energy_reset}.")
+            return after_energy_reset
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            return self.scale_quadrupoles(scale = 1.0)
+        elif method == EnergyChangeMethod.BOTH:
+            if which_method == 1:
+                return self.reset_energy(method=EnergyChangeMethod.DEFAULT)
+            if which_method == 2:
+                return self.scale_quadrupoles(scale=1.0)
+            return
 
     def change_intensity(self):
         steps = float(self.uvatt2_test_steps)

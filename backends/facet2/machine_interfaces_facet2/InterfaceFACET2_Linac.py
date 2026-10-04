@@ -18,17 +18,7 @@ except ImportError as exc:
     _control_import_error = str(exc)
 from traceback import print_exception
 from machine_interfaces_facet2.FACET2 import FACET2
-
-'''
-TO IMPLEMENT!!!
-
-def get_screens(self):
-    pass
-def set_quadrupoles(self):
-    pass
-
-'''
-
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
 # missing/deffered elements in the model to ignore
 BPM_BLACKLIST = [
@@ -109,6 +99,8 @@ class InterfaceFACET2_Linac(AbstractMachineInterface):
         self.bpm_buffer = make_bpm_buffer(self.f2m, self.bpms, Npts=self.nsamples)
         print('InterfaceFACET2_Linac is ready')
         self.machine_name = "FACET"
+        self.quadrupole_scaling_factor = 0.5
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def log_messages(self,console):
         self.log=console or print
@@ -194,30 +186,36 @@ class InterfaceFACET2_Linac(AbstractMachineInterface):
     def _pv_readback(self, pv):
         return lambda: self._safe_float(pv.get(), default=np.nan)
 
-    def change_energy(self):
-        if np.isclose(float(self.bba_bc11_energy_offset_mev), 0.0) or np.isclose(float(self.bba_downstream_energy_offset_mev), 0.0):
-            raise RuntimeError(
-                "bba_bc11_energy_offset_mev / bba_downstream_energy_offset_mev is 0; reset_energy() "
-                "sets these PVs to 0.0 too, so a DFS would be meaningless."
-            )
-        print('Lowering beam energy starting from BC11')
-        targets = {
-            'bc11e_setpoint': self.bba_bc11_energy_offset_mev,
-            'bc14e_setpoint': self.bba_downstream_energy_offset_mev,
-            'bc20e_setpoint': self.bba_downstream_energy_offset_mev,
-        }
-        for name, target in targets.items():
-            self._set_and_verify(lambda name=name, target=target: self.PVs[name].put(target), self._pv_readback(self.PVs[name]), target, description=name)
-        # get_pv(f'PHYS:SYS1:1:F2LFB_BC11BL_TARGET').put(4400)
-        # get_pv(f'PHYS:SYS1:1:F2LFB_BC14BL_TARGET').put(5000)
-        return float(self.bba_bc11_energy_offset_mev) / 335.0
+    def change_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            if np.isclose(float(self.bba_bc11_energy_offset_mev), 0.0) or np.isclose(float(self.bba_downstream_energy_offset_mev), 0.0):
+                raise RuntimeError(
+                    "bba_bc11_energy_offset_mev / bba_downstream_energy_offset_mev is 0; reset_energy() "
+                    "sets these PVs to 0.0 too, so a DFS would be meaningless."
+                )
+            print('Lowering beam energy starting from BC11')
+            targets = {
+                'bc11e_setpoint': self.bba_bc11_energy_offset_mev,
+                'bc14e_setpoint': self.bba_downstream_energy_offset_mev,
+                'bc20e_setpoint': self.bba_downstream_energy_offset_mev,
+            }
+            for name, target in targets.items():
+                self._set_and_verify(lambda name=name, target=target: self.PVs[name].put(target), self._pv_readback(self.PVs[name]), target, description=name)
+            # get_pv(f'PHYS:SYS1:1:F2LFB_BC11BL_TARGET').put(4400)
+            # get_pv(f'PHYS:SYS1:1:F2LFB_BC14BL_TARGET').put(5000)
+            return float(self.bba_bc11_energy_offset_mev) / 335.0
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            raise NotImplementedError("Methods get_quadrupoles and set_quadrupoles are not implemented.")
 
-    def reset_energy(self):
-        print('Restoring beam energy at BC11, re-enabling feedbacks')
-        for name in ('bc11e_setpoint', 'bc14e_setpoint', 'bc20e_setpoint'):
-            self._set_and_verify(lambda name=name: self.PVs[name].put(0.0), self._pv_readback(self.PVs[name]), 0.0, description=name)
-        # get_pv(f'PHYS:SYS1:1:F2LFB_BC11BL_TARGET').put(5000)
-        # get_pv(f'PHYS:SYS1:1:F2LFB_BC14BL_TARGET').put(8000)
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            print('Restoring beam energy at BC11, re-enabling feedbacks')
+            for name in ('bc11e_setpoint', 'bc14e_setpoint', 'bc20e_setpoint'):
+                self._set_and_verify(lambda name=name: self.PVs[name].put(0.0), self._pv_readback(self.PVs[name]), 0.0, description=name)
+            # get_pv(f'PHYS:SYS1:1:F2LFB_BC11BL_TARGET').put(5000)
+            # get_pv(f'PHYS:SYS1:1:F2LFB_BC14BL_TARGET').put(8000)
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            raise NotImplementedError("Methods get_quadrupoles and set_quadrupoles are not implemented.")
 
     def change_intensity(self):
         if np.isclose(float(self.bba_uvwp_offset_deg), 0.0):

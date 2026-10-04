@@ -12,6 +12,10 @@ INTERFACES = [{'display_name': 'ESRF TL2',
   'class_name': 'InterfaceESRF_TL2',
   'clock_timezone': 'Europe/Paris',
   'beam_change': {'methods': ['Change booster extraction time', 'Quadrupole scaling'],
+                  'method_ids': {
+                      'Change booster extraction time': 'default',
+                      'Quadrupole scaling': 'quadrupole_scaling',
+                  },
                   'method_settings': {
                       'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
                   'energy': {'label': 'Change energy',
@@ -37,6 +41,10 @@ INTERFACES = [{'display_name': 'ESRF TL2',
    'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
                    'method_settings': {
                        'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
+                   'method_ids': {
+                       'Change Pref': 'default',
+                       'Quadrupole scaling': 'quadrupole_scaling',
+                   },
                    'energy': {'label': 'Change energy',
                               'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
                               'test': {'label': 'Pref factor',

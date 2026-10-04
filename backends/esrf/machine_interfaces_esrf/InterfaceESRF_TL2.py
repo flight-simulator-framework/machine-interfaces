@@ -12,6 +12,7 @@ except ImportError:
 # import ringcontrol.beamcontrol.orbitcorr as orbitcorr
 # from ringcontrol.devices.constants import DevNames, AttNames, PropNames, Numeric
 # import ringcontrol.devices.magnets as magnets
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
 def get_unavailable_reason():
     if tango is None:
@@ -132,6 +133,8 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
         #self.end = self.tracking_interface.end
         self.bg_shots = int(bg_shots)
         self.bpm_readout_names = monitors.copy()
+        self.quadrupole_scaling_factor = 0.5
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def _get_charge_reference(self):
         value = self.get_icts(names=self.chosen_ict)
@@ -181,50 +184,72 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             target = self.initial_gridv
             self._set_and_verify(lambda: attribute.write(target), lambda: attribute.read().w_value, target, description="Grid voltage")
 
-    def change_energy(self, delta=None):
-        delta = self.energy_delta if delta is None else delta
-        if delta is None or not np.isfinite(delta) or abs(delta)>=5: # limit to 10ms Text variation
-            raise ValueError("Delta value is wrong.")
-        "Change energy with extraction time in the booster"
-        "which is good because the dipoles ramp in TL2 and SY (booster) are synchronised"
-        df = pd.read_csv("/machfs/kandre/rips_dipole_ramp.csv")
-        timing = pd.read_csv("/opt/infra_rw/settings/Timing/operation_long.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
-        syext = pd.read_csv("/opt/infra_rw/settings/syext/operation.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
-        Eext = np.interp(144.2 - delta, df["step"]/1599*250, df["Dipole Output Current [Amp]"]) * 4.05776e-3
-        print(rf"For a dt = {-delta:.2f} ms, the extraction energy is ~ {Eext:.3f} GeV eq. to dpp = {1e2*(1-Eext/6):.2f}%")
-        factor =  1 - (1-Eext/6)
-        self.log(f"Change energy by {delta} which change the energy to {Eext:.2f}GeV ({1e2*(1-Eext/6):.2f}%)..")
-        try:
-            # commented to not change the machine by mistake
-            tango.AttributeProxy('infra/t-whist/bunchclock/Text').write((timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0] + delta*1e3)*1e-6)
-            tango.AttributeProxy('sy/ps-ke/1/current').write(syext[syext["name"]=="sy/ps-ke/1/current"]["current"].values[0] * factor)
-            tango.AttributeProxy('sy/ps-bumper/1/current').write(syext[syext["name"]=="sy/ps-bumper/1/current"]["current"].values[0]* factor)
-            tango.AttributeProxy('sy/ps-se/1/current').write(syext[syext["name"]=="sy/ps-se/1/current"]["current"].values[0]* factor)
-            tango.AttributeProxy('sy/ps-bumper/2/current').write(syext[syext["name"]=="sy/ps-bumper/2/current"]["current"].values[0]* factor)
-            tango.AttributeProxy('sy/ps-se/2-1/current').write(syext[syext["name"]=="sy/ps-se/2-1/current"]["current"].values[0]* factor)
-            tango.AttributeProxy('sy/ps-bumper/3/current').write(syext[syext["name"]=="sy/ps-bumper/3/current"]["current"].values[0]* factor)
-            time.sleep(self.settle_time)
-        except Exception as e:
-            self.log(f"ABORT : change_energy failed - {e}")
-            self.reset_energy()
-            raise
-        return float(factor - 1)
+    def scale_quadrupoles(self, scale=None):
+        if scale is None:
+            scale = self.quadrupole_scaling_factor
+        scale = float(scale)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Quadrupole scaling factor must be finite and positive.")
+        scaled_optics_currents = self.initial_quad_currents * scale
+        for attempt in range(1, 10):
+            if self.set_quadrupoles(self.quadrupoles, scaled_optics_currents):
+                return True
+            if attempt < 10:
+                self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
+        raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
 
-    def reset_energy(self):
-        "Reset extraction time to the nominal value from operation_long.ts"
-        timing = pd.read_csv("/opt/infra_rw/settings/Timing/operation_long.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
-        syext = pd.read_csv("/opt/infra_rw/settings/syext/operation.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
-        self.log("Reset energy, with initial Text..")
-        # commented to not change the machine by mistake
-        tango.AttributeProxy('infra/t-whist/bunchclock/Text').write(timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0]*1e-6)
-        tango.AttributeProxy('sy/ps-ke/1/current').write(syext[syext["name"]=="sy/ps-ke/1/current"]["current"].values[0])
-        tango.AttributeProxy('sy/ps-bumper/1/current').write(syext[syext["name"]=="sy/ps-bumper/1/current"]["current"].values[0])
-        tango.AttributeProxy('sy/ps-se/1/current').write(syext[syext["name"]=="sy/ps-se/1/current"]["current"].values[0])
-        tango.AttributeProxy('sy/ps-bumper/2/current').write(syext[syext["name"]=="sy/ps-bumper/2/current"]["current"].values[0])
-        tango.AttributeProxy('sy/ps-se/2-1/current').write(syext[syext["name"]=="sy/ps-se/2-1/current"]["current"].values[0])
-        tango.AttributeProxy('sy/ps-bumper/3/current').write(syext[syext["name"]=="sy/ps-bumper/3/current"]["current"].values[0])
-        time.sleep(self.settle_time)
-        self.log(f"Write {timing[timing['name']=='infra/t-whist/bunchclock/Text']['current'].values[0]*1e-6} to Text and {tango.AttributeProxy('infra/t-whist/bunchclock/Text').read().w_value} is read")
+    def change_energy(self, delta=None, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            delta = self.energy_delta if delta is None else delta
+            if delta is None or not np.isfinite(delta) or abs(delta)>=5: # limit to 10ms Text variation
+                raise ValueError("Delta value is wrong.")
+            "Change energy with extraction time in the booster"
+            "which is good because the dipoles ramp in TL2 and SY (booster) are synchronised"
+            df = pd.read_csv("/machfs/kandre/rips_dipole_ramp.csv")
+            timing = pd.read_csv("/opt/infra_rw/settings/Timing/operation_long.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+            syext = pd.read_csv("/opt/infra_rw/settings/syext/operation.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+            Eext = np.interp(144.2 - delta, df["step"]/1599*250, df["Dipole Output Current [Amp]"]) * 4.05776e-3
+            print(rf"For a dt = {-delta:.2f} ms, the extraction energy is ~ {Eext:.3f} GeV eq. to dpp = {1e2*(1-Eext/6):.2f}%")
+            factor =  1 - (1-Eext/6)
+            self.log(f"Change energy by {delta} which change the energy to {Eext:.2f}GeV ({1e2*(1-Eext/6):.2f}%)..")
+            try:
+                # commented to not change the machine by mistake
+                tango.AttributeProxy('infra/t-whist/bunchclock/Text').write((timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0] + delta*1e3)*1e-6)
+                tango.AttributeProxy('sy/ps-ke/1/current').write(syext[syext["name"]=="sy/ps-ke/1/current"]["current"].values[0] * factor)
+                tango.AttributeProxy('sy/ps-bumper/1/current').write(syext[syext["name"]=="sy/ps-bumper/1/current"]["current"].values[0]* factor)
+                tango.AttributeProxy('sy/ps-se/1/current').write(syext[syext["name"]=="sy/ps-se/1/current"]["current"].values[0]* factor)
+                tango.AttributeProxy('sy/ps-bumper/2/current').write(syext[syext["name"]=="sy/ps-bumper/2/current"]["current"].values[0]* factor)
+                tango.AttributeProxy('sy/ps-se/2-1/current').write(syext[syext["name"]=="sy/ps-se/2-1/current"]["current"].values[0]* factor)
+                tango.AttributeProxy('sy/ps-bumper/3/current').write(syext[syext["name"]=="sy/ps-bumper/3/current"]["current"].values[0]* factor)
+                time.sleep(self.settle_time)
+            except Exception as e:
+                self.log(f"ABORT : change_energy failed - {e}")
+                self.reset_energy()
+                raise
+            return float(factor - 1)
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            self.scale_quadrupoles()
+            return 0.0
+
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            "Reset extraction time to the nominal value from operation_long.ts"
+            timing = pd.read_csv("/opt/infra_rw/settings/Timing/operation_long.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+            syext = pd.read_csv("/opt/infra_rw/settings/syext/operation.ts", header=None, names=["name", "current"], skiprows=6, sep=": ", engine="python")
+            self.log("Reset energy, with initial Text..")
+            # commented to not change the machine by mistake
+            tango.AttributeProxy('infra/t-whist/bunchclock/Text').write(timing[timing["name"]=="infra/t-whist/bunchclock/Text"]["current"].values[0]*1e-6)
+            tango.AttributeProxy('sy/ps-ke/1/current').write(syext[syext["name"]=="sy/ps-ke/1/current"]["current"].values[0])
+            tango.AttributeProxy('sy/ps-bumper/1/current').write(syext[syext["name"]=="sy/ps-bumper/1/current"]["current"].values[0])
+            tango.AttributeProxy('sy/ps-se/1/current').write(syext[syext["name"]=="sy/ps-se/1/current"]["current"].values[0])
+            tango.AttributeProxy('sy/ps-bumper/2/current').write(syext[syext["name"]=="sy/ps-bumper/2/current"]["current"].values[0])
+            tango.AttributeProxy('sy/ps-se/2-1/current').write(syext[syext["name"]=="sy/ps-se/2-1/current"]["current"].values[0])
+            tango.AttributeProxy('sy/ps-bumper/3/current').write(syext[syext["name"]=="sy/ps-bumper/3/current"]["current"].values[0])
+            time.sleep(self.settle_time)
+            self.log(f"Write {timing[timing['name']=='infra/t-whist/bunchclock/Text']['current'].values[0]*1e-6} to Text and {tango.AttributeProxy('infra/t-whist/bunchclock/Text').read().w_value} is read")
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            self.scale_quadrupoles(scale = 1.0)
+            return 0.0
 
     def get_sequence(self):
         return self.sequence

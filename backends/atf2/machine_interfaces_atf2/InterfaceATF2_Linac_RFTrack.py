@@ -4,6 +4,7 @@ import time, os, re, copy
 from machine_interfaces.Backend.LogConsole import LogConsole
 from datetime import datetime
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
+from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
 class InterfaceATF2_Linac_RFTrack(AbstractMachineInterface):
 
@@ -40,7 +41,8 @@ class InterfaceATF2_Linac_RFTrack(AbstractMachineInterface):
         '''Uncomment lines below to scatter elements in the lattice.'''
         # self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
         # self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0, 0, 0, 0, 'center')
-
+        self.quadrupole_scaling_factor = 0.5
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def get_beam_factors(self):
         gamma_rel = np.sqrt((self.Pref0 / self.electronmass) ** 2 + 1.0)
@@ -103,17 +105,33 @@ class InterfaceATF2_Linac_RFTrack(AbstractMachineInterface):
         self.B1 = self.lattice.track(B0_offset)
         I = self.B1.get_info()
 
-    def change_energy(self):
-        self.__setup_beam1()
-        self.__track_bunch()
-        self._beam_mode = "energy_changed"
-        dP_P = self.dfs_test_energy - 1.0
-        return dP_P
+    def scale_quadrupoles(self, scale=None):
+        if scale is None:
+            scale = self.quadrupole_scaling_factor
+        scale = float(scale)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Quadrupole scaling factor must be finite and positive.")
+        scaled_optics_currents = self.initial_quad_currents * scale
+        self.set_quadrupoles(self.quadrupoles, scaled_optics_currents)
 
-    def reset_energy(self):
-        self.__setup_beam0()
-        self.__track_bunch()
-        self._beam_mode = "nominal"
+    def change_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self.__setup_beam1()
+            self.__track_bunch()
+            self._beam_mode = "energy_changed"
+            dP_P = self.dfs_test_energy - 1.0
+            return dP_P
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            self.scale_quadrupoles()
+            return 0.0
+
+    def reset_energy(self, method = EnergyChangeMethod.DEFAULT):
+        if method == EnergyChangeMethod.DEFAULT:
+            self.__setup_beam0()
+            self.__track_bunch()
+            self._beam_mode = "nominal"
+        elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
+            return self.scale_quadrupoles(scale = 1.0)
 
     def change_intensity(self):  # reduced charge
         self.__setup_beam2()
