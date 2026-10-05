@@ -32,7 +32,10 @@
     "                        the BTVCTRL still handles filter and lamps for that device.",
     "",
     "Devices marked 'XML source: BTVConc_DU.cfv-2010-btvclex1.xml' were extracted automatically.",
-    "CS.* devices are retained from the previous config; hardware-installed fields are unknown."
+    "CS.* devices are retained from the previous config; hardware-installed fields are unknown.",
+    "",
+    "CA.BTV0390 (L and H): flip_hor=1 is applied before rotate=3, so it inverts y on the final image.",
+    "                      Without it y had the opposite sign to CA.BTV0620/0730/0910 (quad scans 4-8 Sep 2026)."
   ],
 
   "devices": {
@@ -87,7 +90,7 @@
 
     "CA.BTV0390": {
       "digiCamDevice":       "CA.BTV0390.DigiCam",
-      "rotate": 3, "flip_hor": 0, "flip_ver": 0,
+      "rotate": 3, "flip_hor": 1, "flip_ver": 0,
       "controlDeviceName":   "CA.BTV0390_CAS.BTV0420",
       "controlDeviceType":   "BTVCTRL",
       "controlDeviceFields": { "system": 1 },
