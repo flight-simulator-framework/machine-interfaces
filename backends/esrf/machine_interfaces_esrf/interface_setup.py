@@ -56,7 +56,7 @@ INTERFACES = [{'display_name': 'ESRF TL2',
                                           'attribute': 'wfs_test_charge',
                                           'default': 0.9}}},
    'settings': {'nsamples': 3},
-   'units': {'corrector_strength': 'A', 'quadrupole_strength': 'A', 'bpm_position': 'm',
+   'units': {'corrector_strength': 'gauss*m', 'quadrupole_strength': 'A', 'bpm_position': 'm',
              'sysid_target_excursion': 0.5}},
 
   ]

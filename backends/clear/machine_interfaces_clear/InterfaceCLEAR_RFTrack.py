@@ -113,7 +113,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         T.alpha_y = 7.2462
 
         T.sigma_t = 0#10*rft.ps # mm/c
-        T.sigma_pt = 30#10 # permille
+        T.sigma_pt = 0#10 # permille
         T.mean_xp = 0.0
         T.mean_yp = 0.0
         sigmaCut = 5.0
