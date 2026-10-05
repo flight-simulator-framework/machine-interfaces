@@ -108,7 +108,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
     def get_beam_factors(self):
         gamma_rel = np.sqrt((self.Pref / self.electronmass) ** 2 + 1.0)
         beta_rel = np.sqrt(1.0 - 1.0 / gamma_rel ** 2)
-        return gamma_rel, beta_rel
+        return gamma_rel, beta_rel, gamma_rel * beta_rel
 
     def scale_quadrupoles(self, scale=None):
         if scale is None:
@@ -314,6 +314,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
         yb_list = []
         sigx_list = []
         sigy_list = []
+        sigxy_list = []
         sum_list = []
         images = []
         hedges_all = []
@@ -333,6 +334,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
                 yb_list.append(np.nan)
                 sigx_list.append(np.nan)
                 sigy_list.append(np.nan)
+                sigxy_list.append(np.nan)
                 sum_list.append(0.0)
                 images.append(np.zeros((1, 1)))
                 hedges_all.append(np.array([0.0, hpixel]))
@@ -346,6 +348,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
                 yb_list.append(np.nan)
                 sigx_list.append(np.nan)
                 sigy_list.append(np.nan)
+                sigxy_list.append(np.nan)
                 sum_list.append(0.0)
                 images.append(np.zeros((1, 1)))
                 hedges_all.append(np.array([0.0, hpixel]))
@@ -358,6 +361,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
             yb_list.append(np.mean(m[:, 1]))
             sigx_list.append(np.std(m[:, 0]))
             sigy_list.append(np.std(m[:, 1]))
+            sigxy_list.append(np.cov(m[:, 0], m[:, 1], bias=True)[0, 1])
             sum_list.append(sumw)
 
             nx = int(np.ceil(np.ptp(m[:, 0]) / hpixel)) if np.ptp(m[:, 0]) > 0 else 1
@@ -384,6 +388,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
             "y": np.array(yb_list, dtype=float),
             "sigx": np.array(sigx_list, dtype=float),
             "sigy": np.array(sigy_list, dtype=float),
+            "sigxy": np.array(sigxy_list, dtype=float),
             "sum": np.array(sum_list, dtype=float),
             "hedges": hedges_all,
             "vedges": vedges_all,
@@ -437,7 +442,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
             "L": np.array(all_l, dtype=float),
         }
 
-    def _build_bunch_from_guesses(self, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0):
+    def _build_bunch_from_guesses(self, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, energy_pref=None):
         T = rft.Bunch6d_twiss()
         T.emitt_x = float(emit_x)
         T.emitt_y = float(emit_y)
@@ -447,22 +452,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
         T.alpha_y = float(alpha_y0)
         T.sigma_t = self.bunch_length_ps * rft.ps
         T.sigma_pt = 0.8
-        return rft.Bunch6d_QR(rft.electronmass, self.population, self.Q, self.Pref, T, self.nparticles)
-
-    def _read_tracked_bunch_screen_sigmas(self, screens):
-        screen_data = self.get_screens(names=screens)
-        name_to_index = {name: i for i, name in enumerate(screen_data["names"])}
-        sigx = np.full(len(screens), np.nan, dtype=float)
-        sigy = np.full(len(screens), np.nan, dtype=float)
-
-        for i, screen in enumerate(screens):
-            idx = name_to_index.get(screen)
-            if idx is None:
-                continue
-            sigx[i] = float(screen_data["sigx"][idx])
-            sigy[i] = float(screen_data["sigy"][idx])
-
-        return sigx, sigy
+        return rft.Bunch6d_QR(rft.electronmass, self.population, self.Q, self.Pref if energy_pref is None else float(energy_pref), T, self.nparticles)
 
     def get_elements_indices(self, names):
         if isinstance(names, str):
@@ -471,45 +461,36 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
         return [name_to_index.get(name, np.nan) for name in names]
 
     def predict_emittance_scan_response(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=None, reference_screen=None):
-        screens = list(screens)
-        quad_setting_values = np.asarray(quad_setting_values, dtype=float)
+        full = self.predict_emittance_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=stop_checker)
+        return full["sigma_x"], full["sigma_y"]
 
-        if len(screens) == 0:
-            raise RuntimeError("No screens provided for emittance scan prediction.")
+    def predict_emittance_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref=None, stop_checker=None, reference_screen=None):
+        # The beam is guessed at the start of the lattice (the linac accelerates it on the way to the quadrupole), so energy_pref is the momentum there.
+        screens = list(screens)
         if quad_name not in self.quadrupoles:
             raise ValueError(f"Quadrupole {quad_name} not found in quadrupoles")
         missing_screens = [screen for screen in screens if screen not in self.screens]
-        if missing_screens:
-            raise ValueError(f"Screens not found: {missing_screens}")
+        if not screens or missing_screens:
+            raise ValueError(f"Screens not found: {missing_screens or 'none given'}")
 
-        original_quad = self.get_quadrupoles(names=[quad_name])
-        if len(original_quad["bdes"]) == 0:
-            raise RuntimeError(f"Could not find original strength for quad {quad_name}")
-        original_quad_setting = float(original_quad["bdes"][0])
-        B0_original = self.B0
-
-        output_x = np.full((len(quad_setting_values), len(screens)), np.nan, dtype=float)
-        output_y = np.full((len(quad_setting_values), len(screens)), np.nan, dtype=float)
-
+        lattice_reference = self.lattice
+        self.lattice = lattice_reference.clone()  # the scan and the offsets only change this copy
+        if any(value is not None for value in (quad_dx0, quad_dy0, quad_roll)):
+            self.lattice[quad_name].set_offsets(quad_dx0 or 0.0, quad_dy0 or 0.0, 0.0, quad_roll or 0.0, 0.0, 0.0, "center")
+        last_screen = max(screens, key=self.screens.index)
+        results = {key: np.full((len(quad_setting_values), len(screens)), np.nan) for key in ("sigma_x", "sigma_y", "x_mean", "y_mean", "sigma_xy")}
         try:
             for k, quad_setting in enumerate(quad_setting_values):
                 if callable(stop_checker) and stop_checker():
                     raise RuntimeError("__OPTIMIZATION_STOP__")
-
                 self.set_quadrupoles([quad_name], [float(quad_setting)], track=False)
-                self.B0 = self._build_bunch_from_guesses(
-                    emit_x=emit_x,
-                    emit_y=emit_y,
-                    beta_x0=beta_x0,
-                    beta_y0=beta_y0,
-                    alpha_x0=alpha_x0,
-                    alpha_y0=alpha_y0,
-                )
-                self.__track_bunch()
-                output_x[k, :], output_y[k, :] = self._read_tracked_bunch_screen_sigmas(screens)
+                bunch = self._build_bunch_from_guesses(emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, energy_pref)
+                rft.Lattice_view(self.lattice, self.lattice['*'][0], self.lattice[last_screen]).track(bunch)
+                for s, screen in enumerate(screens):
+                    m = self.lattice[screen].get_bunch().get_phase_space('%x %y')
+                    results["x_mean"][k, s], results["y_mean"][k, s] = np.mean(m, axis=0)
+                    results["sigma_x"][k, s], results["sigma_y"][k, s] = np.std(m, axis=0)
+                    results["sigma_xy"][k, s] = np.cov(m[:, 0], m[:, 1], bias=True)[0, 1]
         finally:
-            self.B0 = B0_original
-            self.set_quadrupoles([quad_name], [original_quad_setting], track=False)
-            self.__track_bunch()
-
-        return output_x, output_y
+            self.lattice = lattice_reference
+        return results

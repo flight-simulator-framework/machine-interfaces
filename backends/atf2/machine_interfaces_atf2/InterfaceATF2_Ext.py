@@ -400,6 +400,9 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
     def predict_emittance_scan_response(self, *args, **kwargs): # from optimizer, delegates all variables to the simulation
         return self.tracking_interface.predict_emittance_scan_response(*args, **kwargs)
 
+    def predict_emittance_scan_response_full(self, *args, **kwargs):
+        return self.tracking_interface.predict_emittance_scan_response_full(*args, **kwargs)
+
     def get_R_matrix_scan(self, *args, **kwargs):
         return self.tracking_interface.get_R_matrix_scan(*args, **kwargs)
 
@@ -618,7 +621,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
 
     def _screen_data_from_image(self, image, hpixel, vpixel): # better be subtracted!
         if image is None or np.asarray(image, dtype=float).ndim!=2 or np.asarray(image, dtype=float).size==0:
-            return np.nan, np.nan, np.nan, np.nan, 0.0, np.zeros((1, 1)), np.array([0.0, 1.0]), np.array([0.0, 1.0])
+            return np.nan, np.nan, np.nan, np.nan, np.nan, 0.0, np.zeros((1, 1)), np.array([0.0, 1.0]), np.array([0.0, 1.0])
 
         # I_xi_yi, I = I_beam - I_background
         img = np.asarray(image, dtype=float).copy()
@@ -631,7 +634,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         if summed_intensity <= 0:
             hedges = (np.arange(nx + 1) - nx / 2) * hpixel
             vedges = (np.arange(ny + 1) - ny / 2) * vpixel
-            return np.nan, np.nan, np.nan, np.nan, 0.0, img, hedges, vedges
+            return np.nan, np.nan, np.nan, np.nan, np.nan, 0.0, img, hedges, vedges
         proj_x = np.sum(img, axis=0)
         proj_y = np.sum(img, axis=1)
 
@@ -648,6 +651,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
 
         sigx = np.sqrt(np.sum((x_pixels_positions - x_mean_positions)**2 * proj_x) / summed_intensity)
         sigy = np.sqrt(np.sum((y_pixels_positions - y_mean_positions)**2 * proj_y) / summed_intensity)
+        sigxy = np.sum(np.outer(y_pixels_positions - y_mean_positions, x_pixels_positions - x_mean_positions) * img) / summed_intensity # x-y covariance, shows a rolled (coupled) beam
 
         hedges = (np.arange(nx+1) - nx / 2) * hpixel
         vedges = (np.arange(ny+1) - ny / 2) * vpixel
@@ -705,7 +709,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         # # np.average(h[1:], weights=np.sum(i,axis=0)) # andrea's suggestion
         # # mOTR:analyzer:size
         '''
-        return x_mean_positions, y_mean_positions, sigx, sigy, summed_intensity, img, hedges, vedges
+        return x_mean_positions, y_mean_positions, sigx, sigy, sigxy, summed_intensity, img, hedges, vedges
 
     def _wait_for_screen_target_position(self, screen_name, target, timeout=10.0, poll_interval=0.05):
         screen_pv_name = self.screen_pv_names.get(screen_name)
@@ -736,6 +740,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         yb_list = []
         sigx_list = []
         sigy_list = []
+        sigxy_list = []
         sum_list = []
         images = []
         background_images = []
@@ -756,7 +761,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
                     self.log(f"Acquiring background image for {screen_name}.")
                     self.acquire_screen_background(screen_name, frames=10)
                 subtracted_img, bg_img, beam_img = self.acquire_screen_image(screen_name)
-                x_mean, y_mean, sigx, sigy, total, img, hedges, vedges = self._screen_data_from_image(subtracted_img, hpixel, vpixel)
+                x_mean, y_mean, sigx, sigy, sigxy, total, img, hedges, vedges = self._screen_data_from_image(subtracted_img, hpixel, vpixel)
 
             except Exception as e:
                 self.log(f"Couldn't acquire screen image for {screen_name}, because: {e}")
@@ -764,6 +769,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
                 y_mean = np.nan
                 sigx = np.nan
                 sigy = np.nan
+                sigxy = np.nan
                 total = 0.0
                 subtracted_img = np.zeros((1, 1), dtype=float)
                 bg_img = np.zeros((1, 1), dtype=float)
@@ -778,6 +784,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             yb_list.append(y_mean)
             sigx_list.append(sigx)
             sigy_list.append(sigy)
+            sigxy_list.append(sigxy)
             sum_list.append(total)
             images.append(np.asarray(subtracted_img, dtype=float))
             background_images.append(np.asarray(bg_img, dtype=float))
@@ -794,6 +801,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             "y": np.asarray(yb_list, dtype=float), # mm
             "sigx": np.asarray(sigx_list, dtype=float), # mm
             "sigy": np.asarray(sigy_list, dtype=float), # mm
+            "sigxy": np.asarray(sigxy_list, dtype=float), # mm^2
             "sum": np.asarray(sum_list, dtype=float),
             "hedges": hedges_all, # mm
             "vedges": vedges_all, # mm

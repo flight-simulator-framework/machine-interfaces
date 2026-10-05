@@ -824,7 +824,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
                     subtracted_img, hpixel, vpixel = self._orient_screen_image(screen_name, subtracted_img, raw_hpixel, raw_vpixel)
                     bg_img, _, _ = self._orient_screen_image(screen_name, bg_img, raw_hpixel, raw_vpixel)
                     beam_img, _, _ = self._orient_screen_image(screen_name, beam_img, raw_hpixel, raw_vpixel)
-                    x_mean, y_mean, sigx, sigy, total, img, hedges, vedges = self._screen_data_from_image(subtracted_img, hpixel, vpixel)
+                    x_mean, y_mean, sigx, sigy, sigxy, total, img, hedges, vedges = self._screen_data_from_image(subtracted_img, hpixel, vpixel)
                     if np.isfinite(sigx) and np.isfinite(sigy):
                         break
 
@@ -834,6 +834,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
                     y_mean = np.nan
                     sigx = np.nan
                     sigy = np.nan
+                    sigxy = np.nan
                     total = 0.0
                     subtracted_img = np.zeros((1, 1), dtype=float)
                     bg_img = np.zeros((1, 1), dtype=float)
@@ -848,6 +849,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
             yb_list.append(y_mean)
             sigx_list.append(sigx)
             sigy_list.append(sigy)
+            sigxy_list.append(sigxy)
             sum_list.append(total)
             images.append(np.asarray(subtracted_img, dtype=float))
             background_images.append(np.asarray(bg_img, dtype=float))
@@ -864,6 +866,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
             "y": np.asarray(yb_list, dtype=float),
             "sigx": np.asarray(sigx_list, dtype=float),
             "sigy": np.asarray(sigy_list, dtype=float),
+            "sigxy": np.asarray(sigxy_list, dtype=float),
             "sum": np.asarray(sum_list, dtype=float),
             "hedges": hedges_all, #imagePositionSet1
             "vedges": vedges_all,
@@ -966,11 +969,14 @@ class CLEAR_real_machine(AbstractMachineInterface):
 
         x_mean_positions, sigx = self._fit_projection(x_pixels_positions, proj_x)
         y_mean_positions, sigy = self._fit_projection(y_pixels_positions, proj_y)
+        dx, dy = x_pixels_positions - x_mean_positions, y_pixels_positions - y_mean_positions
+        core = (img - np.median(img)) * np.outer(np.abs(dy) < 3 * sigy, np.abs(dx) < 3 * sigx)  # beam core only, so leftover background does not bias it
+        sigxy = np.sum(np.outer(dy, dx) * core) / np.sum(core)  # x-y covariance, shows a rolled (coupled) beam
 
         hedges = np.r_[x_pixels_positions - hpixel / 2, x_pixels_positions[-1] + hpixel / 2]
         vedges = np.r_[y_pixels_positions - vpixel / 2, y_pixels_positions[-1] + vpixel / 2]
 
-        return x_mean_positions, y_mean_positions, sigx, sigy, summed_intensity, img, hedges, vedges
+        return x_mean_positions, y_mean_positions, sigx, sigy, sigxy, summed_intensity, img, hedges, vedges
 
     def log_messages(self, console):
         self.log = console or print
