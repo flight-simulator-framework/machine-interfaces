@@ -1,6 +1,7 @@
 #!/bin/bash
 # CLEAR-only Flight Simulator setup on the CLEAR consoles: clones the application repositories without other
-# machines' files, creates the shared venv with the CLEAR backend and writes run_gui.sh next to the repositories.
+# machines' files, creates the shared venv with the CLEAR backend and writes one launcher per GUI (e.g. SysID_GUI.sh)
+# next to the repositories.
 # Usage, from the folder containing machine-interfaces: bash machine-interfaces/backends/clear/deploy_clear.sh
 source /acc/local/share/python/acc-py/base/pro/setup.sh
 set -e
@@ -21,12 +22,14 @@ pip install -e machine-interfaces -e machine-interfaces/backends/clear -e respon
     -e system-identification -e beam-based-alignment -e emittance-measurement
 python -c "import pyda, pyda_japc, RF_Track, machine_interfaces_clear; print('OK')"
 
-cat > run_gui.sh <<'EOF'
+for f in */*_GUI.py; do
+    s=$(basename "$f" .py).sh
+    cat > "$s" <<EOF
 #!/bin/bash
 source /acc/local/share/python/acc-py/base/pro/setup.sh
-D=$(dirname "$(readlink -f "$0")")
-cd "$D/$1" || exit 1
-exec "$D/venv/bin/python" "$2"
+cd "$PWD/$(dirname "$f")"
+exec "$PWD/venv/bin/python" "$(basename "$f")"
 EOF
-chmod +x run_gui.sh
+    chmod +x "$s"
+done
 echo "Done: $PWD"
