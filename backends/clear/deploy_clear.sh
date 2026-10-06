@@ -1,8 +1,4 @@
 #!/bin/bash
-# CLEAR-only Flight Simulator setup on the CLEAR consoles: clones the application repositories without other
-# machines' files, creates the shared venv with the CLEAR backend and writes one launcher per GUI (e.g. SysID_GUI.sh)
-# next to the repositories.
-# Usage, from the folder containing machine-interfaces: bash machine-interfaces/backends/clear/deploy_clear.sh
 source /acc/local/share/python/acc-py/base/pro/setup.sh
 set -e
 cd "$(dirname "$(readlink -f "$0")")/../../.."

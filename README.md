@@ -1,38 +1,25 @@
 # Machine Interfaces
 
-Connect Flight Simulator applications to an accelerator control system or a simulation. An interface implements commands into the common set of methods used by the applications.
+Connect Flight Simulator applications to an accelerator control system or a simulation. Each interface implements the common set of methods used by the applications.
 
-The repository consists of 5 machine-folders, able to run on the real or simulated machine:
-`machine-interfaces`, `machine-interfaces-clear`, `machine-interfaces-atf2`, `machine-interfaces-facet2`, `machine-interfaces-esrf`
+This repository provides a shared interface API and four accelerator-specific backend packages:
 
-Machine packages are in `backends/<machine>`. Installed packages register their choices through the `flight_simulator.interfaces` entry-point group. The selector displays only installed machines. Importing the registry does not connect to any machine.
+- `machine-interfaces`: shared interface API and application utilities.
+- `machine-interfaces-clear`: CLEAR interfaces.
+- `machine-interfaces-atf2`: ATF2 interfaces.
+- `machine-interfaces-facet2`: FACET2 interfaces.
+- `machine-interfaces-esrf`: ESRF interfaces.
 
-## Installation
+Accelerator-specific packages are located in `backends/<machine>` and provide interfaces to the control system or simulation. Installed packages register their interfaces through the `flight_simulator.interfaces` entry-point group. The selector displays only installed machines. Importing the registry does not connect to any machine.
 
-For an application, follow its README and select a machine with `poetry install --extras clear` (or `atf2`, `facet2`, `esrf`).
+# Installation
 
+For deployment on a control-room computer, follow the instructions for [CLEAR](backends/clear/clear_deploy.md), [ATF2](backends/atf2/atf2_deploy.md), [ESRF](backends/esrf/esrf_deploy.md) or [FACET2](backends/facet2/facet2_deploy.md).
 
-```bash
-cd backends/clear
-poetry install
-```
-
-CLEAR requires access to the CERN Acc-Py repository and the CERN CA certificate trusted by Poetry. The `clear` extra declares the CERN packages explicitly because Poetry source selection is not inherited from dependencies. ATF2 and FACET2 live interfaces require their EPICS environment; ESRF requires Tango. For ATF2 magnet conversion, build the native library from `backends/atf2/machine_interfaces_atf2/libmagnet` or supply its path through `ATF2_MAG_KI_LIB`.
-
-## Build
-
-
-```bash
-poetry build
-poetry -C backends/clear build
-poetry -C backends/atf2 build
-poetry -C backends/facet2 build
-poetry -C backends/esrf build
-```
 
 ## Connecting a new machine
 
-The virtual class is `AbstractMachineInterface`; `State` is the data container shared by acquisition, response-matrix calculation, correction and emittance applications, while the machine interface itself is used for communication with the machine (simulated or real).
+The abstract base class is `AbstractMachineInterface`; `State` is the data container shared by acquisition, response-matrix calculation, correction and emittance applications, while the machine interface itself is used for communication with the machine (simulated or real).
 
 ## Required subclass methods
 
@@ -56,6 +43,8 @@ The following two methods are not declared abstract, but the inherited `get_stat
 - `get_hcorrectors_names()` returns the horizontal corrector names.
 - `get_vcorrectors_names()` returns the vertical corrector names.
 
+Energy methods used by SysID and BBA must accept the `method` keyword argument. For target-dispersion correction, `change_energy()` must return the relative momentum change used to calculate the target orbit difference.
+
 ## Data dictionaries
 
 All fields must describe the same devices in the same order. `names` is an ordered sequence of device names. Convert scalar hardware responses to arrays with the expected dimensions, including when only one device or one sample is selected.
@@ -63,7 +52,7 @@ All fields must describe the same devices in the same order. `names` is an order
 | Device type | Fields | Shapes and meaning                                                                                                                                                                                                           |
 |-------------|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Correctors  | `names`, `bdes`, `bact` | `N` names and two arrays of length `N`; `bdes`: desired/setpoint, `bact`: actual/readback strengths.                                                                                                                         |
-| BPMs        | `names`, `x`, `y`, `tmit` | `N` names; arrays shaped `(nsamples, N)`. Positions would be best in mm.                                                                                                                                                     |
+| BPMs        | `names`, `x`, `y`, `tmit` | `N` names; arrays shaped `(nsamples, N)`. Return positions in millimetres to match the application calculations and declare `units.bpm_position` as `mm` in the interface registration. |
 | ICTs        | `names`, `charge` | `N` names and charge array of length `N`.                                                                                                                                                                                    |
 | Quadrupoles | `names`, `bdes`, `bact` | Existing mover interfaces add position/roll arrays such as `xdes`, `xact`, `ydes`, `yact`, `rolldes`, `rollact`.                                                                                                             |
 | Sextupoles  | `names`, `bdes`, `bact` | Same as quadrupoles.                                                                                                                                                                                                         |
@@ -85,44 +74,35 @@ The system-identification application below produces these machine snapshots.
 
 Corrector SysID needs:
 
-* `set_correctors()` and `get_correctors()` - in order to perform corrector kicks and acquiring readbacks.
-
-
-* `get_bpms()` returns BPMs readbacks
-
-
-* `get_hcorrectors_names()` and `get_vcorrectors_names()` - return list of names with horizontal and vertical correctors
-
-
-* `change_energy()`, `reset_energy()` - ways to change and reset energy for off-energy response matrix acquisition
-
-
-* `change_intensity()`, `reset_intensity()` - ways to change and reset bunch charge for changed intensity response matrix acquisition
-
-
-* `get_icts()` - returns transmission evolution in order to track if the transmission is not lost
+- `set_correctors()` and `get_correctors()` apply corrector kicks and acquire readbacks.
+- `get_bpms()` returns BPM readbacks.
+- `get_hcorrectors_names()` and `get_vcorrectors_names()` return the horizontal and vertical corrector names.
+- `change_energy()` and `reset_energy()` apply and restore the energy condition for off-energy response matrix acquisition.
+- `change_intensity()` and `reset_intensity()` apply and restore the bunch-charge condition for changed-intensity response matrix acquisition.
+- `get_icts()` returns charge readings included in the acquired machine snapshots.
 
 QM SysID additionally needs `get_quadrupole_movers_names()`, `get_quadrupoles(names)` with mover readback/setpoint arrays, and `apply_qmag_xyroll(names, x, y, roll, wait=True)`.
 
 ### Beam-based alignment
 
-Corrector BBA needs the same methods as `System Identification`, ordered sequence, `get_target_dispersion` in case of target-dispersion correction (can be set to 0 in case of Dispersion Free Steering).
+Corrector BBA needs the same methods as System Identification, an ordered device sequence and `get_target_dispersion()` for target-dispersion correction. Return zero target dispersion for Dispersion Free Steering.
 
 Optional QM BBA additionally uses mover names, mover state and `apply_qmag_xyroll(...)`. Some plots optionally use `get_twiss_at_screen`.
 
 ### Orbit bump
 
-This application needs the same methods as `System Identification`.
+Orbit bump requires corrector reads and writes, BPM acquisition, device ordering and machine snapshots. Applying a bump does not call the energy or intensity methods, although subclasses must still implement all abstract methods.
 
 
 ### Emittance measurement
 
 Emittance measurement needs:
 
-* `get_quadrupoles()`, `set_quadrupoles()` - used mainly for quadrupole scan. It is also useful when downloading the status of the machine to update the RF - Track model.
-* `get_screens()` - used as well during quadrupole scan. They record images, coupling, beam positions and other quantities.
-And, the ordered device sequence as well.
-* `insert_screen()`, `extract_screen()` - methods to directly call to interact with screens moving in and out of the beamline.
+- `get_quadrupoles()` and `set_quadrupoles()` read and change quadrupole settings during a scan. Quadrupole readbacks are also used to update the RFTrack model from the machine state.
+- `get_screens()` returns screen images, beam positions, sizes and other acquisition quantities.
+- `get_sequence()` returns the ordered device sequence.
+
+Screen movement methods are optional. The scan calls `extract_screen()` during cleanup when the backend provides it. The current scan does not require or call `insert_screen()`.
 
 Scan ranges are entered in amperes. If a quadrupole's `value_unit` is not `A`, the scan requires `current_to_k1l(quad_name, current_A)` for conversion. `k1l_to_current(quad_name, value)` is used for displayed/stored current values when available.
 
@@ -161,37 +141,3 @@ This repository also provides the common modules used by the applications:
 - `machine_interfaces/Backend/LogConsole.py`: application log dialog.
 - `machine_interfaces/Backend/ActuatorMode.py`: corrector and quadrupole-mover modes.
 - `machine_interfaces/Knobs/jitter_subtraction.py`: estimation and subtraction of correlated beam motion using upstream BPMs.
-
-## Installation
-
-Use Python 3.11 or newer and Poetry 2 or newer. From the repository directory, install the dependencies:
-
-```bash
-poetry -C backends/clear update rf-track --lock
-cd machine-interfaces/backends/esrf
-poetry install
-poetry run python ../../examples_tests/ESRF/testEnergy.py
-```
-
-The shared Python package is named `machine_interfaces`; adapters have separate names such as `machine_interfaces_clear`. For example:
-
-```python
-from machine_interfaces_clear.InterfaceCLEAR_RFTrack import InterfaceCLEAR_RFTrack
-```
-
-## ATF2 magnet-current calibration
-
-ATF2 emittance scans and magnet-current conversion require the native `libmagnet` library. Install a C compiler, GNU Fortran (`gfortran`) and `make`, then build it from the sources in this repository:
-
-```bash
-cd backends/atf2/machine_interfaces_atf2/libmagnet
-make CFLAG=-fPIC
-```
-
-On macOS, also run:
-
-```bash
-gfortran -dynamiclib -o libmagnet.dylib *.o
-```
-
-On Linux, `make` produces `libmagnet.so`. Keep the resulting library in this directory; applications using the editable package will find it automatically. A prebuilt library must match the operating system and CPU architecture. To use a library stored elsewhere, set `ATF2_MAG_KI_LIB` to its absolute path. Compiled libraries and object files are excluded from Git.
