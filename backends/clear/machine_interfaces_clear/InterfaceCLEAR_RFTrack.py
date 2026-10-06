@@ -111,7 +111,6 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         T.beta_y = 109.1117  # m; back-propagated from QFD350 entrance
         T.alpha_x = 1.3126
         T.alpha_y = 7.2462
-
         T.sigma_t = 0#10*rft.ps # mm/c
         T.sigma_pt = 0#10 # permille
         T.mean_xp = 0.0
@@ -380,7 +379,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         if isinstance(names, str):
             names = [names]
         if names is not None:
-            idx = [i for i, s in enumerate(icts["names"]) if s in names]
+            idx = [list(icts["names"]).index(s) for s in names if s in icts["names"]]  # requested order, like the real machine
             icts = {
                 "names": [icts["names"][i] for i in idx],
                 "charge": np.asarray(icts["charge"])[idx],
@@ -403,7 +402,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         if isinstance(names, str):
             names = [names]
         if names is not None:
-            idx = [i for i, s in enumerate(correctors["names"]) if s in names]
+            idx = [list(correctors["names"]).index(s) for s in names if s in correctors["names"]]  # requested order, like the real machine
             correctors = {
                 "names": [correctors["names"][i] for i in idx],
                 "bdes": np.asarray(correctors["bdes"])[idx],
@@ -436,7 +435,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         if isinstance(names, str):
             names = [names]
         if names is not None:
-            idx = [i for i, s in enumerate(bpms["names"]) if s in names]
+            idx = [list(bpms["names"]).index(s) for s in names if s in bpms["names"]]  # requested order, like the real machine
             bpms = {
                 "names": [bpms["names"][i] for i in idx],
                 "x": np.asarray(bpms["x"])[:, idx],
@@ -792,7 +791,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         if isinstance(names, str):
             names = [names]
         if names is not None:
-            idx = [i for i, s in enumerate(quadrupoles["names"]) if s in names]
+            idx = [list(quadrupoles["names"]).index(s) for s in names if s in quadrupoles["names"]]  # requested order, like the real machine
             quadrupoles = {
                 "names": [quadrupoles["names"][i] for i in idx],
                 "bdes": np.asarray(quadrupoles["bdes"])[idx],
