@@ -12,19 +12,22 @@ bash machine-interfaces/backends/clear/deploy_clear.sh
 
 ## B. Test the GUIs
 
+From `/clear/data/Python/dev/marlene/flight-simulator-repositories` (or with the full path from anywhere):
+
 ```
-/bin/bash run_gui.sh system-identification SysID_GUI.py
-/bin/bash run_gui.sh response-matrix ComputeResponseMatrix_GUI.py
-/bin/bash run_gui.sh beam-based-alignment BBA_GUI.py
-/bin/bash run_gui.sh orbit-bump BumpsApplication_GUI.py
-/bin/bash run_gui.sh emittance-measurement Emittance_Measurement_GUI.py
+./SysID_GUI.sh
+./ComputeResponseMatrix_GUI.sh
+./BBA_GUI.sh
+./BumpsApplication_GUI.sh
+./Emittance_Measurement_GUI.sh
 ```
+
+QM and other variants: `./SysID_QM_GUI.sh`, `./BBA_QM_GUI.sh`, `./ComputeResponseMatrix_QM_GUI.sh`, ...
 
 ## C. Updating later
 
 ```
 cd /clear/data/Python/dev/marlene/flight-simulator-repositories && for r in */.git; do git -C "$(dirname $r)" pull --ff-only; done
 ```
-
 If the dependencies changed, run `bash machine-interfaces/backends/clear/deploy_clear.sh` again afterwards.
 
