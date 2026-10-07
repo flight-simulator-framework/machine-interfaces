@@ -484,22 +484,24 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             data["pvs"] = {name: dict(self.qmag_pv[name]) for name in names}
         return data
 
-    def set_quadrupoles(self, names, k1l_values, track=True):
+    def set_quadrupoles(self, names, values):
         if type(names) == str:
             names = [names]
-        if not isinstance(k1l_values, (list, tuple, np.ndarray)):
-            k1l_values = [k1l_values]
-        if len(names) != len(k1l_values):
-            raise ValueError(f"len(names)={len(names)} != len(k1l_values)={len(k1l_values)} in set_quadrupoles")
+        if not isinstance(values, (list, tuple, np.ndarray)):
+            values = [values]
+        if len(names) != len(values):
+            raise ValueError(f"len(names)={len(names)} != len(k1l_values)={len(values)} in set_quadrupoles")
 
-        for name, k1 in zip(names, k1l_values):
+        for name, k1 in zip(names, values):
             if name not in self.quadrupoles:
                 raise ValueError(f"Quadrupole '{name}' is not magnet list.")
             current_name = self._quadrupole_current_pv_name(name)
             print(name)
             target_current = self.k1l_to_current(current_name, float(k1))  # A
             self._pv_put(f"{current_name}:currentWrite", float(target_current))
-            self._wait_for_magnet_readback(current_name, float(target_current))
+            if not self._wait_for_magnet_readback(current_name, float(target_current)):
+                return False
+        return True
 
     """Methods for OTRs from mOTRs_measurement.py"""
 
