@@ -1,0 +1,5 @@
+call, file="standard.beam";
+call, file="clear.seqx";
+use, sequence=CA.STRAIGHT;
+select, flag=twiss, full;
+twiss, beta0=initbeta0, file=clear.tws;

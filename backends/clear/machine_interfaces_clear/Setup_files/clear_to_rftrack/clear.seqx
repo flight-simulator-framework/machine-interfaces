@@ -1,0 +1,866 @@
+
+OPTION, -ECHO, WARN, -INFO, -VERBOSE; ! General option to suppress undesired outputs...
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! MAD SEQUENCE OF CLEAR !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+! V0 - Sept 2016:
+!      First version based on Matlab model of Wilfrid (Davide Gamba)
+!
+! V1 - 09/02/2017:
+!      by Sumaira Zeeshan (CERN) and Davide Gamba (CERN)
+!
+! V2 - 20/02/2017:
+!      Addition of Corrector Calibration factors and adjustment of
+!      correctors lengths
+!
+! V3 - 20/04/2017 (DG):
+!      New redefinition adding Califes injector from old files.
+!      Dropping previous definition based on drifts and lines.
+!
+! V4 - 21/04/2017 (SZ):
+!      Minor adjustmens according to old geode.
+!      DG: changed a few names, added a few elements.
+!
+! V5 - 12/05/2017 (DG):
+!      Adding a BPM and a corrector after the plasma cell experiment.
+!
+! V6 - 10/11/2017 (DG)
+!      Adding some more parameters. Adding calibration of correctors.
+!      Moved some scripts.
+!      Still need to verify positioning of devices according to GEODE
+!
+! V7 - 19/01/2018 (DG)
+!      Added new doublet at the end of the line.
+!      Adjusted average position according to GEODE
+!       =>added +4 mm on the reference point in survey file.
+!
+! V8 - May 2019 (KNS)
+!      Updated section between 5xx triplet and CLIC ACS,
+!      based on measurements by Antonio Gilardi, Wilfrid Farabolini, and Kyrre Sjobak.
+!      Also reformatted the seqx file for readability.
+!      Some elements were renamed:
+!      - CLIC structures are now ACX instead of ACS and have a length
+!      - CA.BPM0560 -> CA.BPM0595 (element moved)
+!      - CA.BPC0565 -> CA.BPC0610 (element moved)
+!      - CA.WCM0550 -> CA.WCM0555 (number used twice for elements not in same location)
+!      The camera CA.BTV0620 was added
+!      All ICTs are now included
+!      CA.DHJ0590 was moved upstream to have the BPMs after the bump, not inside it.
+!
+! V9 - February 2023 (KNS)
+!      CLIC ACS removed from machine to improve aperture;
+!        region updated to show new layout
+!      Triplet 3xx shifted to fit EOS experiment
+!      Suppressed various elements with unknown position,
+!       i.e. cavity BPMs and in-vacuum BI test instrumentation
+!      Simplified description of plasma lens experiment
+!      Added (commented out, not permanently installed) quadrupole CA.QDD0920
+!      Note: End-of-line spectrometer not correctly described;
+!       bad starting point and not updated layout.
+!
+! V10 - September 2023
+!      the second beamline is implemented
+!
+! V11 - January 2024
+!      the elements on beamline is updated
+!
+! V12 - May 2025 (AP)
+!      A new BCM (ICT0395) was added right after BTV0390.
+!      BTV0390 was shifted 4 cm upstream to make room.
+!      The center of the BPM measured to be 13 cm behind BTV0390. 
+!      ICT0395 is not included in CALIFES to avoid modifying L_CALIFES;
+!       means that ICT0395 must be included in both dump and main sequence.
+!      Excitation constant for the quadrupoles increased by ~2%, added documentation.
+!
+! V13 - September 2025 (DG)
+!      elements of new beamline defined as installed
+!
+! V14 - January 2026 (SS & GT)
+!      Second beamline element definition refined and updated.
+!      Check on CLEAR beamline for existing elements.
+!      Definition of 2nd beamline sequence.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Calibration constants !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+! -- Quadrupoles ----------------------------------------------
+
+! Based on measurements linked here: https://confluence.cern.ch/pages/viewpage.action?spaceKey=CLEAROP&title=Quadrupoles.
+! The measurements disagree with the nominal value reported by the manufacturer by around 2%. 
+! The excitation constant decreases by a few permille at high currents.
+! The value for ECQD below was given by a linear fit of the measurements evaluated at 40 A. 
+
+ECQD    = 0.0572;            ! excitation constant dB/dx/I = 0.0572 T/Am
+FQD     = CLIGHT*1E-6*ECQD; ! for new QL3 type, QXD, water cooled
+
+! -- Correctors -------------------------------------------------------
+
+! Caluculation:
+!    From rigidity: kick = l_mag[m] * B[T] / (3.3356 p [GeV/c])
+!    So our CORRCALIB = l_mag[m] * (dB/dI) [T/A] / (3.3356/1000). ! /1000 because we use MeV.
+
+! On CALIFES we have two types of correctors, one with 40 and one with 120 windings
+!  120 windings:
+!    l_mag = 164 mm
+!    B(I) = 13.3 Gauss/A
+KG.CORRCALIB = 0.164 * 0.00133/(3.3356/1000); ! 0.06539
+
+!  40 windings:
+!    l_mag = 160 mm
+!    B(I) = 4.4 Gauss/A
+KGS.CORRCALIB = 0.160 * 0.00044/(3.3356/1000); ! 0.02111
+
+! On the LIL structures there are dipolar corrector windings,
+! but only on the first structure they are powered.
+! No information found about their strenght. Assuming here a "random" number.
+KB.CORRCALIB = 0.1;
+
+! On CLEAR we have J type correctors
+! Values from http://ctf3-tbts.web.cern.ch/ctf3-tbts/beams/Rapport_correcteur_DJ.pdf
+!    l_mag = 0.248 m
+!    B(I) = 0.0018 T/A
+KJ.CORRCALIB = 0.248 * 0.0018/(3.3356/1000); ! 0.13383
+
+! S-BAND transverse deflector
+CA.GSDV0340 = 0.0; ! Gradient -- no info found so far (Davide Nov2017)
+
+
+! -- Mechanical thickness of elements ------------------------------------------
+
+L_Q_mech         = 0.200; ! Quadrupole
+
+L_KJ_mech        = 0.100; ! J-type corrector "frame"
+L_KG_mech        = 0.074; ! G-type corrector
+L_iBPM_mech      = 0.118; ! Inductive BPM
+!L_cBPM_CLIC_mech = 0.047;! CLIC cavity BPM
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Elements !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! -- LIL accelerating structures -----------------------------------------------
+L_ACS_LIL = 4.572;
+L_ACS_LIL_mech = 4.745; !Measured by Wilfrid etc. 17/2/2023
+CA.ACS0230 : DRIFT,      L=L_ACS_LIL;
+CA.ACS0250 : DRIFT,      L=L_ACS_LIL;
+CA.ACS0270 : DRIFT,      L=L_ACS_LIL;
+CA.ACS0230E: marker;
+CA.ACS0230S: marker;
+CA.ACS0250E: marker;
+CA.ACS0250S: marker;
+CA.ACS0270E: marker;
+CA.ACS0270S: marker;
+CA.ACS0270S_mech: marker; !Mechanical exit of the last structure,
+                          ! used as a measurement reference point
+
+! -- CLIC accelerating structures
+!TODO: 645 is the WFM; 640 and 650 are the accelerating structures,
+! which have a length...
+!CA.ACS0645: monitor, L=0;
+L_ACX = 0.234;        ! Length of the CLIC structures,       1/10-18
+L_ACX_module = 0.479; ! Length of the  CLIC superstructure, 30/ 4-19
+CA.ACX0640: DRIFT, L=L_ACX;
+CA.ACX0650: DRIFT, L=L_ACX;
+CA.WFM0645: monitor, L=0;
+CA.RMN0700: monitor, L=0; !Radiation monitor
+
+! -- Dipole bending magnets ----------------------------------------------------
+
+! 20.04.2017:
+!   magnetic lenght to 0.4713 instead of 0.471 from old Frank's MADX
+!   addeded positioning correction
+! 29.03.2018:
+!   CA.BHB0400 was installed @17.5deg with respect to the straight line
+!      This means it is not a real RBEND, but an SBAND with tilted entrance..
+!      Since 01.08.2025 this has been replace dy CS.BHB0100, now installed to be
+!      an RBEND for the second beamline @22deg, i.e. dipole faces are tilted by 11
+!      11 deg wrt straight line.
+!      The angle toward VESPER is now 15 deg, i.e. the magnet is an SBEND with
+!      with tilted faces...
+!   CA.BHB0900 is installed @11.355deg with respect to the straight line
+!   The current calibration for the magnet should be:
+!      dB/dI = 0.008583  T/I and for magnetic length Lm = 0.4712 m
+!      According to EDMS #1133503
+! 01.09.2023 - AA:
+!   CS.BHB0100 is going to be rotated the 22 degree with equal pole angle.
+
+! Common to all BHB0100, 0200 and 0900
+CA.LBHB = 0.4713;
+
+!!!!!! Data BHB0100
+! Position coordinate along CLEAR linac - AA
+BHB0100_Pos=21.006975094;
+! Positioning correction (Frank 2008):
+! CS.LCOR0100 = CA.LBHB/2 * ( 1/cos(CS.ANG0100/2) - CS.ANG0100/2/sin(CS.ANG0100/2) );
+
+!CS.ANG0100_Vesper  = -17.5 * twopi/360; ! "Original" VESPER angle
+CS.ANG0100_Vesper   = -15 * twopi/360;
+CS.ANG0100_SecBL    =  22 * twopi/360;
+CS.ANG0100_Straight =   0 * twopi/360;
+
+! E1 (and E2) values for CS.BHB0100 and CS.BHB0200 fitted to natural dispersion on 31/03/2026
+!   => MIGHT BE VERY VERY WRONG! TO BE CHECKED!
+CS.BHBE1 = 0.26;
+CS.BHBE1 = 0;
+!!!!!!
+
+!!!!!! Data BHB0900
+BHB0900_pos= 34.899994842;
+CA.ANG0900      = -22.75 * twopi/360;
+CA.ANG0900_zero =      0 * twopi/360;
+!!!!!!
+
+
+! Compute dipole length for modified beamline, i.e. straight and "new" vesper
+CA.LBHB0_Straight = CA.LBHB/cos(CS.ANG0100_SecBL/2);
+CA.LBHB0_Vesper   = CA.LBHB0_Straight/cos((CS.ANG0100_Vesper+CS.ANG0100_SecBL)/2);
+
+! Compute arc length for different configurations
+CS.SBHB0100_Vesper   = CS.ANG0100_Vesper*(0.5*CA.LBHB0_Vesper/sin(CS.ANG0100_Vesper/2));
+CS.SBHB0100_SecBL    = CS.ANG0100_SecBL *(0.5*CA.LBHB/sin(CS.ANG0100_SecBL/2));
+CS.SBHB0100_Straight = CA.LBHB0_Straight;
+
+! Actual definition of bend BHB0100 for different beamlines
+!  The name without suffix is kept only for the second beamline
+!  which is the "nominal" beamline to which this dipole belongs
+CS.BHB0100_Vesper:   SBEND, L= CS.SBHB0100_Vesper, ANGLE = CS.ANG0100_Vesper, E1=-CS.ANG0100_SecBL/2, E2=-(-CS.ANG0100_Vesper)-CS.ANG0100_SecBL/2;
+!CS.BHB0100:    RBEND, L= CA.LBHB, HGAP=0.052/2, FINT=0.45,            ANGLE = CS.ANG0100_SecBL, KTAP:=CS.REL_BEND_ERROR + CS.REL_BEND_SYS_ERROR*(1+CS.REL_BEND_ERROR);
+CS.BHB0100:    RBEND, L= CA.LBHB, E1=+CS.BHBE1, E2=-CS.BHBE1,          ANGLE = CS.ANG0100_SecBL, KTAP:=CS.REL_BEND_ERROR + CS.REL_BEND_SYS_ERROR*(1+CS.REL_BEND_ERROR);
+CS.BHB0100_Straight: RBEND, L= CA.LBHB0_Straight,  ANGLE = CS.ANG0100_Straight;
+
+! Compute dipole length for modified beamline, i.e. straight and spectrometer on THz stand
+CA.SBHB0900      = CA.ANG0900*(0.5*CA.LBHB/sin(CA.ANG0900/2));
+CA.SBHB0900_zero = CA.LBHB/cos(CA.ANG0900/2);
+
+! Actual definition of bend BHB090 for different beamlines
+CA.BHB0900:      RBEND, L= CA.LBHB,          ANGLE = CA.ANG0900;
+CA.BHB0900_zero: RBEND, L= CA.SBHB0900_zero, ANGLE = CA.ANG0900_zero;
+
+
+! -- Quadrupoles ---------------------------------------------------------------
+! note: currently all limited 0-200A current
+! 20.04.2017: in old MAD they where L=0.220
+L_Q = 0.226; !Magnetic length of QUAD
+
+CA.QUAD: QUADRUPOLE, L=L_Q;
+
+CA.QFD0350: CA.QUAD, k1 := CA.KQFD0350;
+CA.QDD0355: CA.QUAD, k1 := CA.KQDD0355;
+CA.QFD0360: CA.QUAD, k1 := CA.KQFD0360;
+CA.QFD0510: CA.QUAD, k1 := CA.KQFD0510;
+CA.QDD0515: CA.QUAD, k1 := CA.KQDD0515;
+CA.QFD0520: CA.QUAD, k1 := CA.KQFD0520;
+CA.QFD0760: CA.QUAD, k1 := CA.KQFD0760;
+CA.QDD0765: CA.QUAD, k1 := CA.KQDD0765;
+CA.QFD0770: CA.QUAD, k1 := CA.KQFD0770; ! Reversible polarity
+CA.QDD0870: CA.QUAD, k1 := CA.KQDD0870; ! Reversible polarity
+CA.QFD0880: CA.QUAD, k1 := CA.KQFD0880; ! Reversible polarity
+CA.QDD0920: CA.QUAD, k1 := CA.KQDD0920; ! Reversible polarity
+!
+CA.KQFD0350 := CA.IQFD0350 * (FQD / CA.EN);
+CA.KQDD0355 :=-CA.IQDD0355 * (FQD / CA.EN);
+CA.KQFD0360 := CA.IQFD0360 * (FQD / CA.EN);
+CA.KQFD0510 := CA.IQFD0510 * (FQD / CA.EN);
+CA.KQDD0515 :=-CA.IQDD0515 * (FQD / CA.EN);
+CA.KQFD0520 := CA.IQFD0520 * (FQD / CA.EN);
+CA.KQFD0760 := CA.IQFD0760 * (FQD / CA.EN);
+CA.KQDD0765 :=-CA.IQDD0765 * (FQD / CA.EN);
+CA.KQFD0770 := CA.IQFD0770 * (FQD / CA.EN);
+CA.KQDD0870 :=-CA.IQDD0870 * (FQD / CA.EN);
+CA.KQFD0880 := CA.IQFD0880 * (FQD / CA.EN);
+CA.KQDD0920 := CA.IQDD0920 * (FQD / CA.EN);
+
+
+
+! -- Plasma lens ---------------------------------------------------------------
+!CA.ECPLC    = 1.1;                  ! excitation constant dB/dx/I = 1.1 T/Am
+!CA.FPLC     = CLIGHT*1E-6*CA.ECPLC; ! conversion to k1 for plasma lens cell
+!CA.LPLC     = 0.03;                 ! Length plasma lens cell
+!CA.PLC0800A: QUADRUPOLE, L = CA.LPLC/2, k1 := CA.KPLC0800;
+!CA.PLC0800B: QUADRUPOLE, L = CA.LPLC/2, k1 := CA.KPLC0800;
+!CA.KPLC0800 := CA.IPLC0800 * (CA.FPLC / CA.EN);
+!CA.KPLC0800 := CA.IPLC0800 * (CA.FPLC / CA.EN);
+
+! Plasma lens Start & Middle & End:
+!CA.PLC0800S: MARKER;
+CA.PLC0800M: MARKER;
+!CA.PLC0800E: MARKER;
+
+! -- S-BAND vertical transverse RF deflector -----------------------------------
+L_RFDEFLECTOR = 0.246;                   !Measured 12/1/2023; magnetic length may be 0.116m according to original MAD-X sequence
+CA.SDV0340: VKICKER, vkick:=CA.KSDV0340, L=L_RFDEFLECTOR;
+CA.KSDV0340 := 0.116*CA.GSDV0340 / CA.EN;
+
+! -- Correctors ----------------------------------------------------------------
+! note: currently all limited -10A - +10A current
+
+! Horizontal and vertical kickers
+L_KJ = 0.1;   ! Magnetic length
+L_KG = 0.145; ! Magnetic length
+
+CA.DHG0130: KICKER, L=L_KG,  hkick:=CA.KDHG0130, vkick:=CA.KDVG0130;
+CA.DHG0225: KICKER, L=L_KG,  hkick:=CA.KDHG0225, vkick:=CA.KDVG0225;
+CA.DHB0230: KICKER, L=0.000, hkick:=CA.KDHB0230, vkick:=CA.KDVB0230; ! winding along buncher structure
+CA.DHG0245: KICKER, L=L_KG,  hkick:=CA.KDHG0245, vkick:=CA.KDVG0245;
+CA.DHG0265: KICKER, L=L_KG,  hkick:=CA.KDHG0265, vkick:=CA.KDVG0265;
+CA.DHG0320: KICKER, L=L_KG,  hkick:=CA.KDHG0320, vkick:=CA.KDVG0320; !Position not measured
+CA.DHG0385: kicker, L=L_KG,  hkick:=CA.KDHG0385, vkick:=CA.KDVG0385;
+!
+CA.DHJ0540: kicker, L=L_KJ,  hkick:=CA.KDHJ0540, vkick:=CA.KDVJ0540;
+CA.DHJ0590: kicker, L=L_KJ,  hkick:=CA.KDHJ0590, vkick:=CA.KDVJ0590;
+CA.DHJ0710: kicker, L=L_KJ,  hkick:=CA.KDHJ0710, vkick:=CA.KDVJ0710;
+CA.DHJ0780: kicker, L=L_KJ,  hkick:=CA.KDHJ0780, vkick:=CA.KDVJ0780;
+CA.DHJ0840: kicker, L=L_KJ,  hkick:=CA.KDHJ0840, vkick:=CA.KDVJ0840;
+
+!Horizontal kick strengths
+CA.KDHG0130 := CA.IDHG0130 * KGS.CORRCALIB / CA.EN;
+CA.KDHG0225 := CA.IDHG0225 * KGS.CORRCALIB / CA.EN;
+CA.KDHB0230 := CA.IDHB0230 * KB.CORRCALIB / CA.EN;
+CA.KDHG0245 := CA.IDHG0245 * KG.CORRCALIB / CA.EN;
+CA.KDHG0265 := CA.IDHG0265 * KG.CORRCALIB / CA.EN;
+CA.KDHG0320 := CA.IDHG0320 * KG.CORRCALIB / CA.EN;
+CA.KDHG0385 := CA.IDHG0385 * KG.CORRCALIB / CA.EN;
+!
+CA.KDHJ0540 := CA.IDHJ0540 * KJ.CORRCALIB / CA.EN;
+CA.KDHJ0590 := CA.IDHJ0590 * KJ.CORRCALIB / CA.EN;
+CA.KDHJ0710 := CA.IDHJ0710 * KJ.CORRCALIB / CA.EN;
+CA.KDHJ0780 := CA.IDHJ0780 * KJ.CORRCALIB / CA.EN;
+CA.KDHJ0840 := CA.IDHJ0840 * KJ.CORRCALIB / CA.EN;
+
+! Vertical kick strenghts
+CA.KDVG0130 := CA.IDVG0130 * KGS.CORRCALIB / CA.EN;
+CA.KDVG0225 := CA.IDVG0225 * KGS.CORRCALIB / CA.EN;
+CA.KDVB0230 := CA.IDVB0230 * KB.CORRCALIB / CA.EN;
+CA.KDVG0245 := CA.IDVG0245 * KG.CORRCALIB / CA.EN;
+CA.KDVG0265 := CA.IDVG0265 * KG.CORRCALIB / CA.EN;
+CA.KDVG0320 := CA.IDVG0320 * KG.CORRCALIB / CA.EN;
+CA.KDVG0385 := CA.IDVG0385 * KG.CORRCALIB / CA.EN;
+!
+CA.KDVJ0540 := CA.IDVJ0540 * KJ.CORRCALIB / CA.EN;
+CA.KDVJ0590 := CA.IDVJ0590 * KJ.CORRCALIB / CA.EN;
+CA.KDVJ0710 := CA.IDVJ0710 * KJ.CORRCALIB / CA.EN;
+CA.KDVJ0780 := CA.IDVJ0780 * KJ.CORRCALIB / CA.EN;
+CA.KDVJ0840 := CA.IDVJ0840 * KJ.CORRCALIB / CA.EN;
+
+
+
+! -- BPMs ----------------------------------------------------------------------
+! Type BPM = inductive BPM; BPC = cavity BPM (CALIFES or CLIC)
+CA.BPC0220 : MONITOR, L=0;
+CA.BPC0240 : MONITOR, L=0;
+CA.BPC0260 : MONITOR, L=0;
+CA.BPC0310 : MONITOR, L=0;
+
+!CA.BPC0380 : MONITOR, L=0;
+!CAS.BPM0410: MONITOR, L=0; ! not installed
+CA.BPM0530 : MONITOR, L=L_iBPM_mech;
+CA.BPM0595 : MONITOR, L=L_iBPM_mech;
+!CA.BPC0610 : MONITOR, L=0; ! Was: CA.BPC0565
+CA.BPM0690  : MONITOR, L=L_iBPM_mech;
+!CA.BPC0720 : MONITOR, L=0;
+!CA.BPC0790 : MONITOR, L=0;
+CA.BPM0820 : MONITOR, L=L_iBPM_mech;
+CA.BPM0890 : MONITOR, L=L_iBPM_mech;
+CAS.BPM0920: MONITOR, L=L_iBPM_mech;
+
+! -- screens -------------------------------------------------------------------
+!CA.BTVEOS:  monitor, L=0; !Don't really know where this is installed now
+CA.BTV0215:  monitor, L=0;
+CA.BTV0235:  monitor, L=0; ! new screen installed between first two acceleating structures A.A. Jan 2024
+CA.BTV0390:  monitor, L=0;
+!CA.BTV0545:  monitor, L=0;
+CA.BTV0620:  monitor, L=0;
+CA.BTV0730:  monitor, L=0;
+CA.BTV0800:  monitor, L=0;
+CA.BTV0810:  monitor, L=0;
+CA.BTV0910:  monitor, L=0;
+CA.BTV_dump: monitor, L=0; ! TODO: Give a name!
+CAS.BTV0420: monitor, L=0;
+CAS.BTV0930: monitor, L=0;
+
+! -- Scatterers -------------------------------------------------------------------
+CA.SCT0850: monitor, L=0;
+CA.SCT0875: monitor, L=0;
+
+! -- Other instrumentation -----------------------------------------------------
+! Inductive current transformers by Bergoz
+CA.ICT0210  : MONITOR, L=0;
+CA.ICT0395  : MONITOR, L=0;
+CAS.ICT0430 : MONITOR, L=0;
+CA.ICT0930  : MONITOR, L=0;
+CS.ICT0605  : MONITOR, L=0; ! random name for the time being...
+
+!CA.WCM0555  : MONITOR, L=0; ! Wall current monitor,
+                             ! formerly known as 550, however that name is
+                             ! also used for a pile of vacuum equipment.
+!CA.BPR0600  : MONITOR, L=0; ! BPR
+!CA.WFM0645  : MONITOR, L=0; ! Wake Field Monitor in CLIC structure, removed winter 21/22
+
+! -- Other useful markers ------------------------------------------------------
+CA.QS0350: marker; ! quadscan location triplet 350-355-360
+CA.QS0510: marker; ! quadscan location triplet 510-515-520
+CA.QS0760: marker; ! quadscan location triplet 760-765-770
+CA.QS0870: marker; ! quadscan location triplet 870-880-920
+CA.CANON.1.S: marker;
+CA.CANON.1.E: marker;
+
+CA.LAS0205: marker; !Laser mirror
+CA.VAW0915: marker; !Kapton foil (100um) vacuum window at the end of the straight beamline
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! SEQUENCES section (used to build up the full line in various variations) !!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Remember that MAD-X "SEQUENCE" as default takes the reference point
+! to be the centre of the element.
+
+
+
+
+
+
+! -- CA.LINAC ----------------------------------------------------------------
+! from RFgun to CA.BTV0390 included.
+!
+! Based on: Survey file for the CALIFES line in CTF3 - CLEX
+!
+! F. Tecker
+! 25 Jan 2008
+!
+! Based on an initial MAD-X sequence generated by Michel Fontaine
+!
+! Verified with the plan 71 E022 DM- 0080 000 RG
+! that shows the whole CALIFES line (provided by N.Chritin)
+!
+! The bending magnet placement is designed such that the
+! following elements do not move their position if the length
+! of the bend is changed in the file.
+! The placement in a MAD-X sequence uses the path length for
+! the positioning.
+! As I have given the crossing point of the tangents for the
+! spectrometer line (at 21.2454m from the cathode), the position
+! in the sequence has to be corrected by the straight length
+! that is in the bend (L/[2cos(a/2)]),
+! i.e. 1/2 the arc length s = L*a/2/sin(a/2)
+!
+! The same offset has to be applied for the elements following
+! the bend with relative placement.
+!
+! The positioning was verified for the coordinates of CAS.BTV0420
+! (for almost 0 and real length of the bend)
+!
+! Modified 25.03.2008 (FT):
+!    Quad length changed to 0.220 m (as in linac and TBTS files)
+! Modified 20.04.2017 (DG):
+!    The elements are defined above and I finish with last BTV.
+!    An additional spectro line is defined for that: CA.CADUMP
+! Modified 30.06.2022 (KNS):
+!    3xx quadrupoles were moved in 2019 to make room for new EOS
+! Modified 13/1/2023 (KNS)
+!    Taking measurements by Wilfrid & co
+!    of everything after accelerator exit into account
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! L_CALIFES   = 14.9539+L_ACS_LIL_mech/2 + 1.220+0.440*2+0.470+0.295+0.165+0.240 + L_CALIFES_FUDGE;  what is L_CALIFES_FUDGE ???
+!L_CLEAR_LINAC   = 14.9539+L_ACS_LIL_mech/2 + 1.220+0.440*2+0.470+0.295+0.165+0.240 ;
+                                                                                !Measurement 17/2/2023
+                                                                                ! Length of Califes, from the cathode to previous position of BTV0390
+                                                                                ! BTV0390 has since been moved
+L_CLEAR_LINAC   = 21.00 ;   ! New end for the LINAC sequance to include also the ICT0395
+
+S_QFD0350_M = L_CLEAR_LINAC-(0.4036+1.220+2*0.440+L_Q_mech/2);                             !Measurement 12/1/2023
+                                                                                ! Middle of QFD350 quadrupole,
+                                                                                ! originally taken as ref. for measurements in the machine.
+
+CA.LINAC : SEQUENCE, L=L_CLEAR_LINAC;
+! Acceleration part:
+CA.CANON.1.S,  AT= 0 ;
+CA.CANON.1.E,  AT= 0.00001 ;
+CA.DHG0130,  AT=  0.317  ;
+!CA.ICT0210,  AT=  1.4996 ;  ICT is located at 1.64 m from cathode not at 1.5
+!CA.LAS0215,  AT=  1.500  ; ! From mechanical drawing!  40 um difference??
+CA.LAS0205,  AT=  1.4996 ;  ! It is neiher ICT nor screen. It is the laser port. perhaps necassary to keep in MADX due to aperture restriction on beam AA Jan 2024
+CA.ICT0210,  AT=  1.64   ; ! Measurement by Wilfrid using ruler. not pricise
+CA.BTV0215,  AT=  1.8095 ; ! value changed according to GEODE file, previosly written as 1.4996
+CA.BPC0220,  AT=  2.057  ;
+CA.DHG0225,  AT=  2.1765 ;
+CA.ACS0230E, AT=  4.6364 - L_ACS_LIL/2 ;
+CA.DHB0230,  AT=  4.6364 - L_ACS_LIL/2 ; ! winding
+CA.ACS0230,  AT=  4.6364 ;
+CA.ACS0230S, AT=  4.6364 + L_ACS_LIL/2 ;
+CA.BTV0235,  AT=  7.2156 ; ! new screen between ACS0230 and ACS0250
+CA.BPC0240,  AT=  7.2596 ; ! Cavity BPM is closer to the corrector after installation of new screen
+CA.DHG0245,  AT=  7.3321 ;
+CA.ACS0250E, AT=  9.7951 - L_ACS_LIL/2 ;
+CA.ACS0250,  AT=  9.7951 ;
+CA.ACS0250S, AT=  9.7951 + L_ACS_LIL/2 ;
+CA.BPC0260,  AT= 12.3744 ;
+CA.DHG0265,  AT= 12.4909 ;
+CA.ACS0270E, AT= 14.9539 - L_ACS_LIL/2 ;
+CA.ACS0270,  AT= 14.9539 ;
+CA.ACS0270S, AT= 14.9539 + L_ACS_LIL/2 ;
+! CA.ACS0270S_mech, AT= 14.9539 + L_ACS_LIL_mech/2 ;  Is it necassary ??
+! Full energy optics before VESPER:
+CA.BPC0310,  AT= S_QFD0350_M+L_Q_mech/2 - 0.470 - 0.295 - 0.165;                !Measurement 12/1/2023
+CA.DHG0320,  AT= S_QFD0350_M+L_Q_mech/2 - 0.470 - 0.295 - L_KG_mech/2.0;        !Measurement 12/1/2023
+CA.SDV0340,  AT= S_QFD0350_M+L_Q_mech/2 - 0.470 - L_RFDEFLECTOR/2.0;            !Measurement 12/1/2023
+CA.QS0350,   AT= S_QFD0350_M - L_Q/2 ;                                          !Measurement 12/1/2023
+CA.QFD0350,  AT= S_QFD0350_M  ;                                                 !Measurement 12/1/2023
+CA.QDD0355,  AT= S_QFD0350_M + 0.440  ;                                         !Measurement 12/1/2023
+CA.QFD0360,  AT= S_QFD0350_M + 0.440*2 ;                                        !Measurement 12/1/2023
+!CA.BTVEOS,   AT= L_CLEAR_LINAC - 0.975 ;
+!CA.BPC0380,  AT= L_CLEAR_LINAC - 0.736 ;
+CA.DHG0385,  AT= 0.640-L_KG_mech/2+L_Q_mech/2,               FROM=CA.QFD0360 ;  !Measurement 12/1/2023
+CA.BTV0390,  AT= L_CLEAR_LINAC - 0.4436;
+CA.ICT0395,  AT= L_CLEAR_LINAC - 0.3136;
+ENDSEQUENCE;
+
+
+
+! -- vesper sequence to be added to CA.LINAC -----------------------------------
+L_CALIFESDUMP = 22.5 - L_CLEAR_LINAC;
+CA.VESPER : SEQUENCE, l=L_CALIFESDUMP;
+!CA.ICT0395,  AT= 0.13-0.04; ! 13 cm downstream of BTV0390 (May 2025)
+CS.BHB0100_Vesper, AT=(BHB0100_Pos - L_CLEAR_LINAC) + CS.SBHB0100_Vesper/2 ;
+CAS.BTV0420, AT= 0.7, FROM=CS.BHB0100_Vesper ; ! random position (Sep2025)
+CAS.ICT0430, AT= 0.8, FROM=CS.BHB0100_Vesper ; ! random position (Sep2025)
+ENDSEQUENCE;
+
+
+
+! -- CLEAR main sequence. -----------------------------------------------------
+! To be added to CA.CALIFES to go straight.
+! From  CA.BTV0390 (excluded)
+! Up to end of CA.BPM0890
+
+L_STRAIGHT_BL = 1.4664+0.500+0.500+2.468+3.820+0.530+0.450+0.450+1.365+1.390+0.450+0.200; ! Measured on 12/1/2023; sum of all "main" distances
+
+CA.STRAIGHT : SEQUENCE, L=L_STRAIGHT_BL;
+!CA.ICT0395,  AT= 0.13-0.04; ! 13 cm downstream of BTV0390 (May 2025)
+
+CS.BHB0100_Straight, AT=(BHB0100_Pos - L_CLEAR_LINAC) + CS.SBHB0100_Straight/2 ;
+
+CA.QS0510,   AT=  1.4664 - L_Q_mech/2 - L_Q/2 ;                                  !Measurement 27/6/2022
+CA.QFD0510,  AT=  1.4664 - L_Q_mech/2 ;                                          !Measurement 27/6/2022
+CA.QDD0515,  AT=  0.500,                                     FROM=CA.QFD0510;   !Measurement 27/6/2022
+CA.QFD0520,  AT=  0.500,                                     FROM=CA.QDD0515;   !Measurement 27/6/2022
+
+CA.BPM0530,  AT=  0.372+L_Q_mech/2-L_iBPM_mech/2,            FROM=CA.QFD0520;   !Measurement 23/9/2022
+CA.DHJ0540,  AT=  0.200+L_iBPM_mech/2-L_KJ_mech/2,           FROM=CA.BPM0530;   !Measurement 23/9/2022
+!CA.BTV0545,  AT=  0.796+L_Q_mech/2-0.065/2,                  FROM=CA.QFD0520;  !Measurement 30/4-2019
+!CA.WCM0555,  AT=  1.7965+L_Q_mech/2-L_KJ_mech - 0.2,         FROM=CA.QDD0515;  !Measurement 30/4-2019, reference was DHJ550 entry
+CA.DHJ0590,  AT=  1.227,                                     FROM=CA.DHJ0540;   !Measurement 23/9/2022
+CA.BPM0595,  AT=  0.253+L_KJ_mech/2-L_iBPM_mech/2,           FROM=CA.DHJ0590;   !Measurement 23/9/2022
+!CA.BPR0600,  AT=  0.140-0.080/2,                             FROM=CA.BPM0595;   !Measurement 30/4-2019
+!CA.BPC0610,  AT=  0.246+L_iBPM_mech/2,                       FROM=CA.BPM0595;   !Measurement 30/4-2019, +/- ca 1 mm
+CA.BTV0620,  AT=  2.468+L_Q_mech/2,                          FROM=CA.QFD0520;   !Measurement 23/9/2022
+
+CA.BPM0690,  AT=  2.874 - L_iBPM_mech/2,                     FROM=CA.BTV0620;   !Measurement 12/1/2023
+CA.DHJ0710,  AT=  0.564 + L_iBPM_mech/2 - L_KJ_mech/2,       FROM=CA.BPM0690;   !Measurement 12/1/2023
+!CA.BPC0720,  AT=  5.985+L_Q/2,                                FROM=CA.QFD0520;  !Measurement 30/4-2019, reference was BTV730 entry but FROM was CA.ACX0640. Relative position recalulated relative to QFD0510 on 3/7/2022
+CA.BTV0730,  AT=  3.820,                                     FROM=CA.BTV0620;   !Measurement 12/1/2023
+
+CA.QS0760,   AT= 0.530-L_Q_mech/2-L_Q/2,                     FROM=CA.BTV0730;   !Measurement 23/9/2022
+CA.QFD0760,  AT= 0.530-L_Q_mech/2,                           FROM=CA.BTV0730;   !Measurement 23/9/2022
+CA.QDD0765,  AT= 0.450,                                      FROM=CA.QFD0760;   !Measurement 27/6/2022, 23/9/2022
+CA.QFD0770,  AT= 0.450,                                      FROM=CA.QDD0765;   !Measurement 27/6/2022, 23/9/2022
+
+CA.DHJ0780,  AT= 0.533+L_Q_mech/2-L_KJ_mech/2,               FROM=CA.QFD0770;   !Measurement 23/9/2022
+!CA.BPC0790,  AT=  0.755,                                     FROM=CA.QFD0770;   ! Measured on 19/01/2018
+
+!CA.PLC0800S, AT=  1.175,                                     FROM=CA.QFD0770;   ! Measured on 19/01/2018
+!CA.PLC0800A, AT= CA.LPLC / 4,                                FROM=CA.PLC0800S;
+CA.PLC0800M, AT= 1.365+L_Q_mech/2-0.292,                      FROM=CA.QFD0770;  !Measurement 23/9/2022
+CA.BTV0800,  AT= 0,                                           FROM=CA.PLC0800M;
+!CA.PLC0800B, AT= CA.LPLC * 3/4,                              FROM=CA.PLC0800S;
+!CA.PLC0800E, AT= CA.LPLC,                                    FROM=CA.PLC0800S;
+
+CA.BTV0810,  AT= 1.365+L_Q_mech/2,                           FROM=CA.QFD0770;   !Measurement 20/7/2022, 23/9/2022
+CA.BPM0820,  AT= 0.362-L_iBPM_mech/2,                        FROM=CA.BTV0810;   !Measurement 23/9/2022
+CA.DHJ0840,  AT= 0.362+0.540-L_KJ_mech/2+L_Q_mech/2,         FROM=CA.BTV0810;   !Measurement 12/1/2023
+CA.SCT0850,  AT= 0.095,                                      FROM=CA.DHJ0840;     !inserted scatterer at 95 mm downstream to corrector
+CA.QS0870,   AT= 2.755 - L_Q/2,                              FROM=CA.QFD0770;
+CA.QDD0870,  AT= 1.390+1.365,                                FROM=CA.QFD0770;   !Measurement 27/6/2022, 23/9/2022
+CA.SCT0875,  AT= L_Q/2+0.1   ,                               FROM=CA.QDD0870;   !inserted scatterer at 95 mm downstream to quadrupole
+CA.QFD0880,  AT= 0.450,                                      FROM=CA.QDD0870;   !Measurement 19/01/2018, 27/6/2022, 23/9/2022
+CA.BPM0890,  AT= 0.200-L_iBPM_mech/2+L_Q_mech/2,             FROM=CA.QFD0880;   !Measurement 12/1/2023
+
+
+ENDSEQUENCE;
+
+
+! -- CLEAR spectrometer sequence -----------------------------------------------
+! To be added to CA.CLEAR to go into spectrometer
+! From  CA.QFD0880  (excluded)
+! Up to CAS.BTV0830 (included)
+! This part of the sequence is probably incorrect now!
+L_CLSPEC = 1.7954;
+CA.SPECT: SEQUENCE, L = L_CLSPEC;
+!CA.BHB0900,  AT = 0.5478;                  ! according to July 18th 2017 measurements from Tobias
+CA.BHB0900, AT=(BHB0900_pos-L_STRAIGHT_BL-L_CLEAR_LINAC)+CA.SBHB0900/2;
+CAS.BPM0920, AT = 0.7436, FROM=CA.BHB0900; ! according to July 18th 2017 measurements from Tobias
+CAS.BTV0930, AT = 1.2476, FROM=CA.BHB0900; ! according to July 18th 2017 measurements from Tobias
+ENDSEQUENCE;
+
+
+! -- CLEAR straight dump sequence ----------------------------------------------
+!! to be added to CA.CLEAR to go straight into the dump
+! From  CA.BPM0890 exit, up to the dump.
+
+L_INAIR = (1.105-0.200)+0.080+0.950+0.120;                                  !Measurement 12/1/2023
+
+CA.INAIR: SEQUENCE, L=L_INAIR;
+CA.BHB0900_zero, AT=(BHB0900_pos-L_STRAIGHT_BL-L_CLEAR_LINAC)+CA.SBHB0900_zero/2;
+CA.BTV0910, AT= 1.105-0.200;                                                    !Measurement 12/1/2023
+CA.VAW0915, AT=0.07,                                         FROM=CA.BTV0910;   !Measurement 12/4/2023
+!CA.QDD0920,  AT= 1.205-L_Q_mech/2;                                             !Measurement 23/9/2022; magnet later removed
+CA.ICT0930,  AT=0.080,                                       FROM=CA.BTV0910;   !Measurement 12/1/2023 (position can change)
+CA.BTV_DUMP, AT=0.950+0.080,                                 FROM=CA.BTV0910;   !Measurement 12/1/2023
+ENDSEQUENCE;
+
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! (Avni Aksoy sept 2023)
+! ELEMENTS for second beam line
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! new quadrupoles for second beamline
+! two new family is addded to the beamline PXMQNBH8WP PXMXNABNWP (AA Sept 2023)
+! same family QFG/QDG
+
+!!!! Qudrupoles
+
+L_Q2 = 0.3; !Magnetic length of Quadrupoles
+L_X  = 0.1; !Magnetic length of sextupoles
+L_Q2_mechL        = 0.253; ! Quadrupole PXMQNBH8WP
+L_X_mechL         = 0.065; ! Sextupole PXMXNABNWP
+
+
+!!!! Davide, March 2026: 
+!!!!  Values used by Avni:
+!CS.ECQF    = 0.057;                 ! excitation constant dB/dx/I = 0.057 T/Am for quad --> needs to be checked??
+!!!!  Values recovered from CTF3 model (note, here is mentioned model ECQF, but model should be ECQG if keeping CTF3 conventions! => to be updated
+CS.ECQF     = 2.4/0.300/200;    ! GL[T]/L[m]/I[A]  From note AT-MTM-IN-2006-018
+!!!!  If one uses values reported in https://norma-db.web.cern.ch/magdesign/idcard/298/
+!!!!    and in particular https://edms.cern.ch/document/743579/1 at 200 A it should be:
+!!!!   L = 2.401 [T] / 8.198 [T/m] /  = 0.293 m 
+!!!!   But presently being used modelled with LQ2 = 0.3 m
+!!!!   => the value from CTF3 above seems correct for the assumed length.
+!
+CS.FQF     = CLIGHT*1E-6*CS.ECQF;  ! conversion to k1 for second BL
+
+!!!! Davide, March 2026:
+!!!!  Values used by Avni: 
+CS.ECXF    = 0.6;                 ! excitation constant dB/dx/I = 0.6 T/Am for sext--> needs to be checked??
+!!!!  Still to look at https://norma-db.web.cern.ch/magdesign/idcard/373/
+!!!!  Looking at CTF3 model, they were of type "ECXI", type FXB, here called by Avni(?) FXF
+!!!!    Sint = 6.568 T/m at 100A /EDMS no 754421/ AT-MTM-IN-2006-032
+!!!!    Lmodel =0.1 (as done for CLEAR)
+CS.ECXF = 6.568 / 0.1 / 100; 
+! 
+CS.FXF     = CLIGHT*1E-6*CS.ECXF;  ! conversion to k2 for second BL
+
+
+CS.QUAD: QUADRUPOLE, L=L_Q2;
+CS.QFG0130: CS.QUAD, k1 := CS.KQFG0130;
+CS.QDG0155: CS.QUAD, k1 := CS.KQDG0155;
+CS.QFG0170: CS.QUAD, k1 := CS.KQFG0170;
+
+CS.QFG0315: CS.QUAD, k1 := CS.KQFG0315;
+CS.QDG0320: CS.QUAD, k1 := CS.KQDG0320;
+CS.QFG0325: CS.QUAD, k1 := CS.KQFG0325;
+
+CS.QFG0525: CS.QUAD, k1 := CS.KQFG0525;
+CS.QDG0535: CS.QUAD, k1 := CS.KQDG0535;
+CS.QFG0545: CS.QUAD, k1 := CS.KQFG0545;
+
+
+CS.KQFG0130 :=  CS.IQFG0130 * (CS.FQF / CA.EN) ;
+CS.KQDG0155 :=  CS.IQDG0155 * (CS.FQF / CA.EN) ;
+CS.KQFG0170 :=  CS.IQFG0170 * (CS.FQF / CA.EN) ;
+CS.KQFG0315 :=  CS.IQFG0315 * (CS.FQF / CA.EN) ;
+CS.KQDG0320 :=  CS.IQDG0320 * (CS.FQF / CA.EN) ;
+CS.KQFG0325 :=  CS.IQFG0325 * (CS.FQF / CA.EN) ;
+CS.KQFG0525 :=  CS.IQFG0525 * (CS.FQF / CA.EN) ;
+CS.KQDG0535 :=  CS.IQDG0535 * (CS.FQF / CA.EN) ;
+CS.KQFG0545 :=  CS.IQFG0545 * (CS.FQF / CA.EN) ;
+
+
+!!! Sextupoles
+CS.XLA0135 : SEXTUPOLE,  L= L_X, K2:= CS.KXLA0135;
+CS.XLA0165 : SEXTUPOLE,  L= L_X, K2:= CS.KXLA0165;
+
+CS.KXLA0135 :=  CS.IXLA0135 * (CS.FXF / CA.EN) ;
+CS.KXLA0165 :=  CS.IXLA0165 * (CS.FXF / CA.EN) ;
+
+!!!! Correctors
+CS.DHJ0145: kicker, L=L_KJ,  hkick:=0, vkick:=0;
+CS.DHJ0175: kicker, L=L_KJ,  hkick:=0, vkick:=0;
+CS.DHJ0310: kicker, L=L_KJ,  hkick:=0, vkick:=0;
+CS.DHJ0335: kicker, L=L_KJ,  hkick:=0, vkick:=0;
+CS.DHJ0505: kicker, L=L_KJ,  hkick:=0, vkick:=0;
+
+!!! screens
+CS.BTV0120:  monitor, L=0;
+CS.BTV0305:  monitor, L=0;
+CS.BTV0420:  monitor, L=0;
+
+CS.BTV0610:  monitor, L=0;
+CS.BTV0700:  monitor, L=0;
+
+!!! scatterers
+CS.SCAT0500: INSTRUMENT, L=0;
+CS.SCAT0515: INSTRUMENT, L=0;
+
+
+!!! BPMs
+CS.BPM0105:  monitor, L=L_iBPM_mech;
+CS.BPM0185:  monitor, L=L_iBPM_mech;
+CS.BPM0330:  monitor, L=L_iBPM_mech;
+CS.BPM0510:  monitor, L=L_iBPM_mech;
+
+
+!!! bending magnets
+!
+CS.ANG01002 = 22  * twopi/360;
+CS.BHB01002: RBEND, L= CA.LBHB, ANGLE = CS.ANG01002,E1=CS.ANG01002/2,E2=CS.ANG01002/2;
+CS.LCOR01002 = CA.LBHB/2 * ( 1/cos(CS.ANG01002/2) - CS.ANG01002/2/sin(CS.ANG01002/2) );
+CS.SBHB01002=CS.ANG01002*(0.5*CA.LBHB/sin(CS.ANG01002/2));
+!
+CS.ANG0200 = -22  * twopi/360;
+CS.SBHB0200=CS.ANG0200*(0.5*CA.LBHB/sin(CS.ANG0200/2));
+CS.BHB0200: RBEND, L= CA.LBHB, E1=+CS.BHBE1, E2=-CS.BHBE1, ANGLE = CS.ANG0200, KTAP:=CS.REL_BEND_ERROR + CS.REL_BEND_SYS_ERROR*(1+CS.REL_BEND_ERROR);
+
+!!! MARKERS Start of element
+CS.BHB0100S:  MARKER;
+
+!!! MARKERS End of element
+CS.BHB0100E:  MARKER;
+CS.BHB0200E:  MARKER;
+CS.Q0130E:    MARKER;
+CS.Q0315E:    MARKER;
+CS.Q0325E:    MARKER;
+CS.Q0545E:    MARKER;
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! -- CLEAR SECOND BEAMLINE  sequence ----------------------------------------------
+!! (SS & GT Jan26)
+!!
+!! from CA.BTV0390  to the dump
+!! approximate length is 16.4m
+
+L_CLEAR2NDBL = 1.65e+01;
+
+CS.2NDBL : SEQUENCE, L=L_CLEAR2NDBL;
+!CA.ICT0395,  AT= 0.13-0.04; ! 13 cm downstream of BTV0390 (May 2025)
+
+!CS.BHB01002, AT=(21.2454 - L_CLEAR_LINAC) - CS.LCOR01002;
+!CS.BHB01002,  AT=0.410575094+CS.SBHB01002/2;
+CS.BHB0100S,  AT=(BHB0100_Pos- L_CLEAR_LINAC); ! Start of dipole
+CS.BHB0100,   AT=(BHB0100_Pos- L_CLEAR_LINAC)+ CS.SBHB0100_SecBL/2;      ! Middle of the dipole, half of the arc
+!CS.BHB0100E,  AT=CS.SBHB0100_SecBL/2, FROM=CS.BHB0100;              ! Marker placed at the end of the dipole arc
+CS.BPM0105,   AT=0.25+L_iBPM_mech/2+CS.SBHB0100_SecBL/2,                                        FROM=CS.BHB0100;     ! From end of coil it's 0.24, 0.13 from valve
+!CS.BTV0120,   AT=(2*0.13) + L_iBPM_mech + CS.SBHB0100_SecBL/2,                                  FROM=CS.BHB0100;       ! Should be ~0.35 total
+CS.BTV0120,   AT=0.885 + L_iBPM_mech + CS.SBHB0100_SecBL/2,                                    FROM=CS.BHB0100;
+
+CS.QFG0130,   AT=1.243451966+L_Q2/2+CS.SBHB0100_SecBL/2,                                        FROM=CS.BHB0100;       ! CS.QFG0130,   AT=0.1+L_Q2/2 ,   FROM=CS.BTV0120; @ ~1.10m ;       START AT=1.243451966,        FROM=CS.BHB0100E;
+!CS.Q0130E,    AT=1.35 + L_Q2,                                                                   FROM=CS.BHB0100E;       ! Marker
+CS.XLA0135,   AT=0.15+L_X/2+L_Q2/2,                                                             FROM=CS.QFG0130;
+CS.DHJ0145,   AT=0.35+L_X+L_KJ/2+L_Q2/2 ,                                                       FROM=CS.QFG0130;
+CS.QDG0155,   AT=1.336794756+L_X+L_KJ+L_Q2 ,                                                    FROM=CS.QFG0130;
+CS.XLA0165,   AT=2.623589516+L_X+L_KJ+L_Q2+L_X/2+L_Q2/2 ,                                       FROM=CS.QFG0130;
+CS.QFG0170,   AT=2.773589516+(2*L_X)+L_KJ+L_Q2+L_Q2 ,                                           FROM=CS.QFG0130;
+CS.DHJ0175,   AT=3.3841+(2*L_X)+L_KJ+L_KJ/2+(2*L_Q2)+L_Q2/2 ,                                     FROM=CS.QFG0130;
+CS.BPM0185,   AT=3.5293+(2*L_X)+(2*L_KJ)+(2*L_Q2)+L_Q2/2+L_iBPM_mech/2,                           FROM=CS.QFG0130;         ! Exact numbers     AT=0.793451966+0.1+0.15+1.28679476+0.986794756+0.15+0.2+(2*L_X)+(2*L_KJ)+(2*L_Q2)+L_iBPM_mech/2
+
+CS.BHB0200,   AT=3.799041482+(2*L_X)+(2*L_KJ)+(2*L_Q2)+L_iBPM_mech+L_Q2/2+CS.SBHB0200/2,        FROM=CS.QFG0130;         !CS.BHB0200,   AT=0.13+CS.SBHB0200/2+0.120/2, FROM=CS.BPM0185;
+
+!CS.BHB0200E,  AT=CS.SBHB0200/2,                                                                 FROM=CS.BHB0200;         ! Marker at end of dipole arc
+
+CS.BTV0305,   AT=0.1655+CS.SBHB0200/2,                                                          FROM=CS.BHB0200;       !CS.BTV0305,   AT=0.15+CS.SBHB0200/2,     FROM=CS.BHB0200;
+CS.DHJ0310,   AT=0.3605+L_KJ/2+CS.SBHB0200/2,                                                   FROM=CS.BHB0200;
+CS.QFG0315,   AT=0.4905+L_KJ+L_Q2/2+CS.SBHB0200/2,                                              FROM=CS.BHB0200;       ! Positioned at 29.306384042 m absolute (SS & GT Jan26)
+!CS.Q0315E,    AT=0.1+0.15+0.1+L_KJ+L_Q2,                                                        FROM=CS.BHB0200E;       ! Marker
+CS.QDG0320,   AT=0.3+L_Q2 ,                                                                     FROM=CS.QFG0315;         !CS.QDG0320,   AT=0.3+L_Q2 ,      FROM=CS.QFG0315;
+CS.QFG0325,   AT=0.3+L_Q2 ,                                                                     FROM=CS.QDG0320;        !CS.QFG0325,   AT=0.3+L_Q2 ,      FROM=CS.QDG0320;
+!CS.Q0325E,    AT=0.3+L_Q2+L_Q2/2 ,                                                             FROM=CS.QDG0320;        ! Marker
+
+CS.BPM0330,   AT=0.518+L_iBPM_mech/2+L_Q2/2 ,                                                   FROM=CS.QFG0325;
+CS.DHJ0335,   AT=0.637+L_iBPM_mech+L_KJ/2+L_Q2/2,                                               FROM=CS.QFG0325;
+CS.BTV0420,   AT=1.16+L_iBPM_mech+L_KJ+L_Q2/2 ,                                                 FROM=CS.QFG0325;
+
+CS.SCAT0500,  AT=1.40+L_iBPM_mech+L_KJ+L_Q2/2 + 2.,                                             FROM=CS.QFG0325; 
+CS.DHJ0505,   AT=3.532+L_iBPM_mech+L_KJ+L_KJ/2+L_Q2/2,                                           FROM=CS.QFG0325;
+CS.BPM0510,   AT=3.609+L_iBPM_mech+(2*L_KJ)+L_iBPM_mech/2+L_Q2/2,                                FROM=CS.QFG0325;
+CS.SCAT0515,  AT=0.2,                                                                           FROM=CS.BPM0510; 
+
+CS.QFG0525,   AT=3.834+(2*L_iBPM_mech)+(2*L_KJ)+L_Q2 ,                                          FROM=CS.QFG0325;         !CS.QFG0525,   AT=0.15+L_Q2/2 , FROM=CS.BPM0510;
+CS.QDG0535,   AT=0.3+L_Q2 ,                                                                     FROM=CS.QFG0525;
+CS.QFG0545,   AT=0.3+L_Q2 ,                                                                     FROM=CS.QDG0535;
+!CS.Q0545E,    AT=0.3+L_Q2+L_Q2/2,                                                               FROM=CS.QDG0535;        ! Marker
+
+! some random equipment on the second beamline in air station... 
+CS.ICT0605,   AT=0.65+L_Q2/2 ,                                                                  FROM=CS.QFG0545; ! Random position (Jan2026)
+CS.BTV0610,   AT=0.8+L_Q2/2 ,                                                                   FROM=CS.QFG0545; ! Random position (Jan2026)
+CS.BTV0700,   AT=1.0+L_Q2/2 ,                                                                   FROM=CS.QFG0545; ! Random position (Jan2026)
+ENDSEQUENCE;
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The complete sequences, which are normally the ones used !!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+!!! vesper beamline
+VESPER : SEQUENCE, L = L_CLEAR_LINAC + L_CALIFESDUMP, REFER=entry;
+CA.LINAC,      AT = 0;
+CA.VESPER,     AT = L_CLEAR_LINAC;
+ENDSEQUENCE;
+
+
+!!! clear all beamline
+CLEARLINE : SEQUENCE, L = L_CLEAR_LINAC + L_STRAIGHT_BL + L_INAIR, REFER=entry;
+CA.LINAC,      AT = 0;
+CA.STRAIGHT,   AT = L_CLEAR_LINAC;
+CA.INAIR,      AT = L_CLEAR_LINAC + L_STRAIGHT_BL;
+ENDSEQUENCE;
+
+
+!!! clear spectrometer beamline
+CLEARSPECT   : SEQUENCE, L = L_CLEAR_LINAC + L_STRAIGHT_BL + L_CLSPEC, REFER=entry;
+CA.LINAC,      AT = 0;
+CA.STRAIGHT,   AT = L_CLEAR_LINAC;
+CA.SPECT,      AT = L_CLEAR_LINAC + L_STRAIGHT_BL;
+ENDSEQUENCE;
+
+
+!!! clear second beamline
+CLEAR2ND  : SEQUENCE, L = L_CLEAR_LINAC + L_CLEAR2NDBL, REFER=entry;
+CA.LINAC,      AT = 0;
+CS.2NDBL,      AT = L_CLEAR_LINAC;
+ENDSEQUENCE;
+
+!!! Lines defined for survey purposes
+! same as CLEARSPECT
+CA.SURVEY : SEQUENCE, L = L_CLEAR_LINAC + L_STRAIGHT_BL + L_CLSPEC, REFER=entry;
+CA.LINAC,      AT = 0;
+CA.STRAIGHT,   AT = L_CLEAR_LINAC;
+CA.SPECT,      AT = L_CLEAR_LINAC + L_STRAIGHT_BL;
+ENDSEQUENCE;
+
+! same as CLEARSECOND, but without installing LINAC elements...
+CS.SURVEY  : SEQUENCE, L = L_CLEAR_LINAC + L_CLEAR2NDBL, REFER=entry;
+CS.2NDBL,      AT = L_CLEAR_LINAC;
+ENDSEQUENCE;
+
+

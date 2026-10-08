@@ -38,8 +38,6 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
                   'method_settings': {
                       'Quadrupole scaling': {
                           'energy': QUADRUPOLE_SCALING,
-                          'actions': {'change_energy': 'change_quadrupoles',
-                                      'reset_energy': 'reset_quadrupoles'},
                           'energy_offset': 0.0},
                   },
                   'method_ids': {

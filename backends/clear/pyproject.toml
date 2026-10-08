@@ -11,6 +11,7 @@ dependencies = [
     "pyrbac (>=1.0,<2) ; python_version >= \"3.11\" and python_version < \"4\"",
     "pyccda (>=1.29.4) ; python_version >= \"3.11\" and python_version < \"4\"",
     "cmmnbuild-dep-manager (>=2.13,<3) ; python_version >= \"3.11\" and python_version < \"4\"",
+    "cpymad>=1,<2",
 ]
 
 [[project.authors]]

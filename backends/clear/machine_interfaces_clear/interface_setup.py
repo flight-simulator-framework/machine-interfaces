@@ -1,9 +1,10 @@
 from pathlib import Path
 
-QUADRUPOLE_SCALING = {'label': 'Change energy',
+QUADRUPOLE_SCALING = {'label': 'Change energy (Quadrupole scaling)',
  'tooltip': 'Multiply the quadrupole currents captured when the interface was opened by this factor. Restore '
             'those currents afterward.',
  'test': {'label': 'Scaling factor', 'attribute': 'quadrupole_scaling_factor', 'default': 0.5},
+ 'measurement_button': 'Measure Dispersion (Quadrupole scaling)',
  'labels': {'mode': 'Quadrupole scaling',
             'status_mode_name': 'Quadrupole scaling',
             'mode_option_label': 'Quadrupole scaling',
@@ -27,7 +28,6 @@ QUADRUPOLE_SCALING = {'label': 'Change energy',
                               'orbit changes may be mistaken for jitter and over-subtracted.',
             'response_tooltip': 'Load response data measured with scaled quadrupole currents. This data is '
                                 'used for the quadrupole-scaling correction term.',
-            'measurement_button': 'Measure Quadrupole Scaling',
             'measurement_tooltip': 'Measure the orbit change caused by scaling quadrupole currents.'}}
 
 INTERFACES = [{'display_name': 'CLEAR',
@@ -43,14 +43,11 @@ INTERFACES = [{'display_name': 'CLEAR',
                   'method_settings': {
                       'Quadrupole scaling': {
                           'energy': QUADRUPOLE_SCALING,
-                          'actions': {'change_energy': 'change_quadrupoles',
-                                      'reset_energy': 'reset_quadrupoles'},
                           'energy_offset': 0.0},
                       'Changing RF phase and quadrupole scaling': {
-                          'intensity': {**QUADRUPOLE_SCALING, 'label': 'Change energy 2'},
-                          'actions': {'change_intensity': 'change_quadrupoles',
-                                      'reset_intensity': 'reset_quadrupoles'}}},
-                  'energy': {'label': 'Change energy',
+                          'intensity': QUADRUPOLE_SCALING,}},
+                  'energy': {'label': 'Change energy (RF phase)',
+                             'measurement_button': 'Measure Dispersion (RF phase)',
                              'tooltip': 'Writes MKS11 PhaseSh_SP. Nominal is restored after the DFS '
                                         'measurement.',
                              'nominal': {'label': 'Nominal [deg]',
@@ -82,14 +79,17 @@ INTERFACES = [{'display_name': 'CLEAR',
   'module': 'machine_interfaces_clear.InterfaceCLEAR_RFTrack',
   'class_name': 'InterfaceCLEAR_RFTrack',
   'clock_timezone': 'Europe/Zurich',
-  'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
+  'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling', 'Changing Pref and quadrupole scaling'],
                   'method_ids': {
                       'Change Pref': 'default',
                       'Quadrupole scaling': 'quadrupole_scaling',
+                      'Changing Pref and quadrupole scaling': 'both',
                   },
                   'method_settings': {
-                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
-                  'energy': {'label': 'Change energy',
+                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING},
+                      'Changing Pref and quadrupole scaling': {'intensity': QUADRUPOLE_SCALING}},
+                  'energy': {'label': 'Change energy (Pref)',
+                             'measurement_button': 'Measure Dispersion (Pref)',
                              'tooltip': 'Multiplies RFTrack reference momentum Pref for the DFS measurement.',
                              'test': {'label': 'Pref factor',
                                       'attribute': 'dfs_test_energy',

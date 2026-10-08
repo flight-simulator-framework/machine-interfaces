@@ -1,10 +1,10 @@
 import numpy as np
 import RF_Track as rft
 from scipy.optimize import minimize
-import os
 from machine_interfaces.Backend.State import State
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
+from machine_interfaces_clear.clear_lattice import load_clear_lattice
 
 class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
     def get_name(self):
@@ -56,8 +56,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         self.nparticles = nparticles
         self.electronmass=rft.electronmass
         self.is_simulation = True
-        survey_path = os.path.join(os.path.dirname(__file__),"Setup_files", "twissinit.tfs")
-        self.lattice = rft.Lattice(survey_path)
+        self.lattice = load_clear_lattice()
         for element in self.lattice["*ICT*"]:
             drift = rft.Drift(element.get_length())
             drift.set_name(element.get_name())

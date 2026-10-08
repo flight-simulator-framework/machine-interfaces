@@ -1,0 +1,63 @@
+!
+! Typical, general purpose beam
+! Initial conditions givens at the entrance of first quadrupole CA.QFD0350
+!
+! davide.gamba@cern.ch - 29/04/2020
+
+! Beam energy (MeV)
+CA.EN    = 200;
+CA.NEX   = 0;
+CA.NEY   = 0;
+
+! Bunch Length
+
+! Bunch Charge
+
+! Nominal initial conditions (measured on 8 Dec 2016 at the entrance of CA.QFD0350)
+CA.IBETX =  14.87; 
+CA.IALFX =  -0.35; 
+CA.IBETY =  14.3; 
+CA.IALFY =   0.09; 
+CA.IMUX  =   0;
+CA.IMUY  =   0;
+
+CA.IDX   =   0;
+CA.IDPX  =   0;
+CA.IDY   =   0;
+CA.IDPY  =   0;
+
+CA.IX    =   0;
+CA.IPX   =   0;
+CA.IY    =   0;
+CA.IPY   =   0;
+CA.IT    =   0;
+CA.IPT   =   0;
+
+
+
+!!!!
+! beam and initial beta definition
+!!!!
+INITBETA0: BETA0,
+      BETX := CA.IBETX,
+      ALFX := CA.IALFX,
+      BETY := CA.IBETY,
+      ALFY := CA.IALFY,
+      MUX  := CA.IMUX,
+      MUY  := CA.IMUY,
+      DX   := CA.IDX,
+      DPX  := CA.IDPX,
+      DY   := CA.IDY,
+      DPY  := CA.IDPY,
+      X    := CA.IX,
+      PX   := CA.IPX,
+      Y    := CA.IY,
+      PY   := CA.IPY,
+      T    := CA.IT,
+      PT   := CA.IPT;
+
+beam, particle = electron,
+      energy   := CA.EN/1000., 
+      EX       := CA.NEX/CA.EN/0.511, 
+      EY       := CA.NEY/CA.EN/0.511, 
+      ET        = 1/1000, SIGT=0, SIGE=0;
