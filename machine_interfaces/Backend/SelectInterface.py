@@ -251,12 +251,11 @@ class InterfaceSelectionDialog(QDialog):
 
         module_name = selected_entry["module"]
         class_name = selected_entry["class_name"]
-        settings = dict(selected_entry.get("settings", {}))
 
         try:
             module = importlib.import_module(module_name)
             cls = getattr(module, class_name)
-            self.selected_interface = cls(**settings)
+            self.selected_interface = cls()
         except Exception as exc:
             QMessageBox.critical(self, "Interface unavailable", f"{selected_entry['display_name']}: {exc}")
             return

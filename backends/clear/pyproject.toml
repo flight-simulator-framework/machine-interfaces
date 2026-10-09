@@ -22,26 +22,9 @@ email = "wiktoria.malek@cern.ch"
 CLEAR = "machine_interfaces_clear.interface_setup"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry]
-exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.o", "**/*.so", "**/*.dylib", "**/.DS_Store"]
-[[tool.poetry.packages]]
-include = "machine_interfaces_clear"
-
-[tool.poetry.dependencies]
-machine-interfaces = {source = "flight-simulator"}
-pyda = {source = "cern-acc-py", python = ">=3.11,<4"}
-pyda-japc = {source = "cern-acc-py", python = ">=3.11,<4"}
-pyrbac = {source = "cern-acc-py", python = ">=3.11,<4"}
-pyccda = {source = "cern-acc-py", python = ">=3.11,<4"}
-cmmnbuild-dep-manager = {source = "cern-acc-py", python = ">=3.11,<4"}
-[[tool.poetry.source]]
-name = "cern-acc-py"
-url = "https://acc-py-repo.cern.ch/repository/vr-py-releases/simple/"
-priority = "explicit"
-[[tool.poetry.source]]
-name = "flight-simulator"
-url = "https://gitlab.cern.ch/api/v4/groups/363527/-/packages/pypi/simple/"
-priority = "explicit"
+[tool.hatch.build.targets.wheel]
+packages = ["machine_interfaces_clear"]
+exclude = ["*.o", "*.so", "*.dylib"]
