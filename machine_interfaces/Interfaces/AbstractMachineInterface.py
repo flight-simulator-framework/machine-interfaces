@@ -25,7 +25,6 @@ class AbstractMachineInterface(ABC):
         return False
 
     def _retry(self, attempt, description, retries=3):
-        # attempt() writes setpoints and returns True once the machine confirms them; False if it never does
         for i in range(1, retries + 1):
             if attempt():
                 return True
