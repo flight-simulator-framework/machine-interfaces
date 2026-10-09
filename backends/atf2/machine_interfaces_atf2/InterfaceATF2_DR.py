@@ -506,10 +506,13 @@ class InterfaceATF2_DR(AbstractMachineInterface):
         if len(names) != len(corr_vals):
             self.log('Error: len(names) != len(corr_vals) in set_correctors(names, corr_vals)')
             return
-        for corrector, corr_val in zip(names, corr_vals):
-            pv_des = PV(f'{corrector}:currentWrite')
-            pv_des.put(corr_val)
-            self._wait_for_corrector_readback(corrector, corr_val)
+        def attempt():
+            confirmed = True
+            for corrector, corr_val in zip(names, corr_vals):
+                PV(f'{corrector}:currentWrite').put(corr_val)
+                confirmed &= self._wait_for_corrector_readback(corrector, corr_val)
+            return confirmed
+        return self._retry(attempt, ", ".join(names))
 
     def vary_correctors(self, names, corr_vals):
         if isinstance(names, str):

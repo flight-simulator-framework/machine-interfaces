@@ -184,20 +184,6 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             target = self.initial_gridv
             self._set_and_verify(lambda: attribute.write(target), lambda: attribute.read().w_value, target, description="Grid voltage")
 
-    def scale_quadrupoles(self, scale=None):
-        if scale is None:
-            scale = self.quadrupole_scaling_factor
-        scale = float(scale)
-        if not np.isfinite(scale) or scale <= 0:
-            raise ValueError("Quadrupole scaling factor must be finite and positive.")
-        scaled_optics_currents = self.initial_quad_currents * scale
-        for attempt in range(1, 10):
-            if self.set_quadrupoles(self.quadrupoles, scaled_optics_currents):
-                return True
-            if attempt < 10:
-                self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
-        raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
-
     def change_energy(self, delta=None, method = EnergyChangeMethod.DEFAULT):
         if method == EnergyChangeMethod.DEFAULT:
             delta = self.energy_delta if delta is None else delta
@@ -319,10 +305,12 @@ class InterfaceESRF_TL2(AbstractMachineInterface):
             corr_vals = [corr_vals]
         if len(names) != len(corr_vals):
             raise ValueError("len(names) != len(corr_vals)")
-        for corrector, corr_val in zip(names, corr_vals):
-            device_name = corrector.rsplit(".", 1)[-1].lower()
-            tango.AttributeProxy(f'tl2/ps-c1/{device_name}/current').write(float(corr_val))
-        return self._wait_for_corrector_readbacks(names, corr_vals)
+        def attempt():
+            for corrector, corr_val in zip(names, corr_vals):
+                device_name = corrector.rsplit(".", 1)[-1].lower()
+                tango.AttributeProxy(f'tl2/ps-c1/{device_name}/current').write(float(corr_val))
+            return self._wait_for_corrector_readbacks(names, corr_vals)
+        return self._retry(attempt, ", ".join(names))
 
     # def read_vlm(self):
     #     "Read VLMs pixels 488x648"

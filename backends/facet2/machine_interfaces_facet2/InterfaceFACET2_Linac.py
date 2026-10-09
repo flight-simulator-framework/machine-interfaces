@@ -379,9 +379,10 @@ class InterfaceFACET2_Linac(AbstractMachineInterface):
         if len(names) != len(corr_vals):
             raise ValueError('len(names) != len(corr_vals) in set_correctors(names, corr_vals)')
         devnames = [self.f2m.device_names[self.f2m.ix[name]] for name in names]
-        set_magnets(devnames, corr_vals, perturb=True)
-        for devname, target in zip(devnames, corr_vals):
-            self._wait_for_magnet_readback(devname, target)
+        def attempt():
+            set_magnets(devnames, corr_vals, perturb=True)
+            return all([self._wait_for_magnet_readback(devname, target) for devname, target in zip(devnames, corr_vals)])
+        return self._retry(attempt, ", ".join(names))
 
     def vary_correctors(self, names, corr_vals):
         """ write deltas to correctors """

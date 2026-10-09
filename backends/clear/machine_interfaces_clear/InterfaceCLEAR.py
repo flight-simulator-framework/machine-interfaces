@@ -242,31 +242,13 @@ class CLEAR_real_machine(AbstractMachineInterface):
     def _set_and_verify(self, property_address, field, target, *, context=None, tolerance=0.1, timeout=10.0, retries=3, description=None):
         context = self.context_empty if context is None else context
         desc = description or f"{property_address}#{field}"
-        last_value = None
-        for attempt in range(1, retries + 1):
+        def attempt():
             self.client.set(property_address, data={field: target})
-            if self._wait_for_japc_readback(property_address, field, target, context=context, tolerance=tolerance, timeout=timeout):
-                return target
-            last_value = self.make_safe_float(self.client.get(property_address, context=context).data.get(field))
-            self.log(f"{desc}: readback={last_value:.6g} did not reach target={target:.6g} (attempt {attempt}/{retries})")
-        raise RuntimeError(
-            f"{desc}: failed to reach target={target:.6g} after {retries} attempts "
-            f"(last readback={last_value})."
-        )
-
-    def scale_quadrupoles(self, scale=None):
-        if scale is None:
-            scale = self.quadrupole_scaling_factor
-        scale = float(scale)
-        if not np.isfinite(scale) or scale <= 0:
-            raise ValueError("Quadrupole scaling factor must be finite and positive.")
-        scaled_optics_currents = self.initial_quad_currents * scale
-        for attempt in range(1, 10):
-            if self.set_quadrupoles(self.quadrupoles, scaled_optics_currents):
-                return True
-            if attempt < 10:
-                self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
-        raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
+            return self._wait_for_japc_readback(property_address, field, target, context=context, tolerance=tolerance, timeout=timeout)
+        if self._retry(attempt, desc, retries):
+            return target
+        last_value = self.make_safe_float(self.client.get(property_address, context=context).data.get(field))
+        raise RuntimeError(f"{desc}: failed to reach target={target:.6g} after {retries} attempts (last readback={last_value}).")
 
     def change_energy(self, method = EnergyChangeMethod.DEFAULT, *, which_method=1):
         if method == EnergyChangeMethod.DEFAULT:
@@ -599,9 +581,11 @@ class CLEAR_real_machine(AbstractMachineInterface):
         if len(names) != len(corr_vals):
             self.log('Error: len(names) != len(corr_vals) in set_correctors(names, corr_vals)')
             return
-        for corrector, corr_val in zip(names, corr_vals):
-            self.client.set(self.corrector_set_params[corrector], data={'current': corr_val})
-        return self._wait_for_corrector_readbacks(names, corr_vals)
+        def attempt():
+            for corrector, corr_val in zip(names, corr_vals):
+                self.client.set(self.corrector_set_params[corrector], data={'current': corr_val})
+            return self._wait_for_corrector_readbacks(names, corr_vals)
+        return self._retry(attempt, ", ".join(names))
 
     def vary_correctors(self, names, corr_vals):
         if isinstance(names, str):

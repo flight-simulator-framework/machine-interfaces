@@ -24,13 +24,29 @@ class AbstractMachineInterface(ABC):
         )
         return False
 
-    def _set_and_verify(self, apply, read_value, target, *, description, tolerance=1e-4, timeout=10.0, retries=3):
-        for attempt in range(1, retries + 1):
-            apply()
-            if self._wait_for_readback(read_value, target, description=description, tolerance=tolerance, timeout=timeout):
+    def _retry(self, attempt, description, retries=3):
+        # attempt() writes setpoints and returns True once the machine confirms them; False if it never does
+        for i in range(1, retries + 1):
+            if attempt():
                 return True
-            getattr(self, "log", print)(f"{description}: retrying (attempt {attempt}/{retries})")
-        raise RuntimeError(f"{description}: failed to reach target {float(target):.6g} after {retries} attempts.")
+            getattr(self, "log", print)(f"{description}: readback not confirmed (attempt {i}/{retries})")
+        return False
+
+    def _set_and_verify(self, apply, read_value, target, *, description, tolerance=1e-4, timeout=10.0, retries=3):
+        def attempt():
+            apply()
+            return self._wait_for_readback(read_value, target, description=description, tolerance=tolerance, timeout=timeout)
+        if not self._retry(attempt, description, retries):
+            raise RuntimeError(f"{description}: failed to reach target {float(target):.6g} after {retries} attempts.")
+        return True
+
+    def scale_quadrupoles(self, scale=None):
+        scale = float(self.quadrupole_scaling_factor if scale is None else scale)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Quadrupole scaling factor must be finite and positive.")
+        if not self._retry(lambda: self.set_quadrupoles(self.quadrupoles, self.initial_quad_currents * scale), "Scaled optics", retries=9):
+            raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
+        return True
 
     @abstractmethod
     def get_name(self):

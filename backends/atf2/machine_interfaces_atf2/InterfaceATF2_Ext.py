@@ -852,20 +852,6 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
     def _pv_readback(self, pv_name):
         return lambda: self.make_safe_float(PV(pv_name).get(), default=np.nan)
 
-    def scale_quadrupoles(self, scale=None):
-        if scale is None:
-            scale = self.quadrupole_scaling_factor
-        scale = float(scale)
-        if not np.isfinite(scale) or scale <= 0:
-            raise ValueError("Quadrupole scaling factor must be finite and positive.")
-        scaled_optics_currents = self.initial_quad_currents * scale
-        for attempt in range(1, 10):
-            if self.set_quadrupoles(self.quadrupoles, scaled_optics_currents):
-                return True
-            if attempt < 10:
-                self.log(f"Scaled optics readback mismatch; retrying ({attempt}/10).")
-        raise RuntimeError("Not all quadrupoles reached their scaled-optics currents after 9 attempts.")
-
     def change_energy(self, delta_freq=None, method = EnergyChangeMethod.DEFAULT):
         if method == EnergyChangeMethod.DEFAULT:
             if delta_freq is None:
@@ -1149,10 +1135,13 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             corr_vals = [corr_vals]
         if len(names) != len(corr_vals):
             print('Error: len(names) != len(corr_vals) in set_correctors(names, corr_vals)')
-        for corrector, corr_val in zip(names, corr_vals):
-            pv_des = PV(f'{corrector}:currentWrite')
-            pv_des.put(corr_val)
-            self._wait_for_magnet_readback(corrector, corr_val)
+        def attempt():
+            confirmed = True
+            for corrector, corr_val in zip(names, corr_vals):
+                PV(f'{corrector}:currentWrite').put(corr_val)
+                confirmed &= self._wait_for_magnet_readback(corrector, corr_val)
+            return confirmed
+        return self._retry(attempt, ", ".join(names))
 
     def vary_correctors(self, names, corr_vals):
         if isinstance(names, str):
