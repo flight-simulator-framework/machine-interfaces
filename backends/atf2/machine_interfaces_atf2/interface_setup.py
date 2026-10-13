@@ -243,6 +243,18 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
              'emit_y_norm': [0.0001, 0.05],
              'beta_y0': [0.2, 8.0],
              'alpha_y0': [-15.0, 2.0],
-             'energy_pref': [1000.0, 2000.0]}}]
+             'energy_pref': [1000.0, 2000.0]}},
+ {'display_name': 'ATF2 Beam Transport RFTrack (SAD, 1.3 GeV)',
+  'module': 'machine_interfaces_atf2.InterfaceATF2_BT_RFTrack',
+  'class_name': 'InterfaceATF2_BT_RFTrack',
+  'clock_timezone': 'Asia/Tokyo',
+  'settings': {'jitter': 0.0, 'bpm_resolution': 0.0, 'nsamples': 1, 'momentum_mev_c': 1300.0},
+  'units': {'corrector_strength': 'T*mm', 'bpm_position': 'mm', 'sysid_corrector_kick': 0.01},
+  'bounds': {'emit_x_norm': [0.0001, 10.0],
+             'beta_x0': [0.05, 60.0],
+             'alpha_x0': [-15.0, 15.0],
+             'emit_y_norm': [0.0001, 10.0],
+             'beta_y0': [0.05, 60.0],
+             'alpha_y0': [-15.0, 15.0]}}]
 
 BRANDING = tuple(Path(__file__).parent / "assets" / name for name in ('atf2_logo.png', 'kek_logo.png'))
