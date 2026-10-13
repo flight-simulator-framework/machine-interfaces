@@ -94,6 +94,19 @@ class AbstractMachineInterface(ABC):
     def get_beam_evolution(self, quad_name, screens, quad_setting, quad_value_unit, beam_parameters):
         raise NotImplementedError(f"{self.get_name()} does not implement get_beam_evolution")
 
+    def _jitter_offsets(self, info):
+        jitter = getattr(self, "jitter", 0.0)
+        if not jitter:
+            return 0.0, 0.0, 0.0, 0.0
+        u = np.random.standard_normal(4)
+        cx = -info.alpha_x / np.sqrt(1.0 + info.alpha_x ** 2)
+        cy = info.alpha_y / np.sqrt(1.0 + info.alpha_y ** 2)
+        dx = jitter * info.sigma_x * u[0]
+        dy = jitter * info.sigma_y * u[1]
+        pitch = jitter * info.sigma_py * (cy * u[1] + np.sqrt(1.0 - cy ** 2) * u[3])
+        yaw = jitter * info.sigma_px * (cx * u[0] + np.sqrt(1.0 - cx ** 2) * u[2])
+        return dx, dy, pitch, yaw
+
     def get_target_dispersion(self, names=None):
         if names is None:
             names = self.bpms

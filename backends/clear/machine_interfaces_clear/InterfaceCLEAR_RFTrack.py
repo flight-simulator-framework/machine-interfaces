@@ -45,8 +45,8 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
             screen.set_name(element.get_name())
             screen.set_length(element.get_length())
             element.replace_with(screen)
-                                                                                                # 10 um = 0.01
-    def __init__(self, population=300 * rft.pC, jitter=0.01, bpm_resolution=0.00, nsamples=1, nparticles=1000):
+                                                                                                # from real data we estimate 50um
+    def __init__(self, population=300 * rft.pC, jitter=0.05, bpm_resolution=0.05, nsamples=1, nparticles=1000):
         self.sigmaCut = 4.0
         self.Pref = 198 # MeV/c
         self.Q=-1
@@ -81,8 +81,8 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         self.__setup_beam0()
         self.lattice.align_elements()
         '''Uncomment lines below to scatter elements in the lattice.'''
-        # self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
-        # self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0, 0, 0, 0, 'center')
+        self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
+        self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0, 0, 0, 0, 'center')
         self.freq=2.997e9
         self.nr_quad=11
         self.Lquad=0.226 #magnetic length of the quadrupole in [m]
@@ -278,11 +278,8 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
 
     def __track_bunch(self):
         I0 = self.B0.get_info()
-        dx = self.jitter * I0.sigma_x
-        dy = self.jitter * I0.sigma_y
+        dx, dy, pitch, yaw = self._jitter_offsets(I0)
         dz, dt, roll = 0.0, 0.0, 0.0
-        pitch = self.jitter * I0.sigma_py
-        yaw = self.jitter * I0.sigma_px
         B0_offset = self.B0.displaced(dx, dy, dz, dt, roll, pitch, yaw)
         B1=self.lattice.track(B0_offset)
         I = B0_offset.get_info()
@@ -417,6 +414,8 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         tmit = np.zeros_like(x)
 
         for i in range(self.nsamples):
+            if self.jitter:
+                self.__track_bunch()
             for j, bpm_name in enumerate(self.bpms):
                 bpm = self.lattice[bpm_name]
                 reading = bpm.get_reading()

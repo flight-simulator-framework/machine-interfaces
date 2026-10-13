@@ -186,11 +186,8 @@ class InterfaceATF2_DR_RFTrack(AbstractMachineInterface):
 
     def __track_bunch(self):
         I0 = self.B0.get_info()
-        dx = self.jitter*I0.sigma_x
-        dy = self.jitter*I0.sigma_y
+        dx, dy, pitch, yaw = self._jitter_offsets(I0)
         dz, roll, dt = 0.0, 0.0, 0.0
-        pitch = self.jitter*I0.sigma_py
-        yaw   = self.jitter*I0.sigma_px
         B0_offset = self.B0.displaced(dx, dy, dz, dt, roll, pitch, yaw)
         tracked_bunch = self.lattice.track(B0_offset)
         # A storage ring BPM observes the periodic closed orbit, not a one-pass

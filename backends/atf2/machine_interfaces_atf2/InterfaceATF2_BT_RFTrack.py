@@ -232,16 +232,8 @@ class InterfaceATF2_BT_RFTrack(AbstractMachineInterface):
         if self.reference_particle:
             self.B1 = self.lattice.track(self.B0)
             return
-        info = self.B0.get_info()
-        bunch = self.B0.displaced(
-            self.jitter * info.sigma_x,
-            self.jitter * info.sigma_y,
-            0.0,
-            0.0,
-            0.0,
-            self.jitter * info.sigma_py,
-            self.jitter * info.sigma_px,
-        )
+        dx, dy, pitch, yaw = self._jitter_offsets(self.B0.get_info())
+        bunch = self.B0.displaced(dx, dy, 0.0, 0.0, 0.0, pitch, yaw)
         self.B1 = self.lattice.track(bunch)
 
     def get_sequence(self):
@@ -258,6 +250,8 @@ class InterfaceATF2_BT_RFTrack(AbstractMachineInterface):
         y = np.zeros_like(x)
         tmit = np.zeros_like(x)
         for sample in range(self.nsamples):
+            if self.jitter and not self.reference_particle:
+                self._track_bunch()
             for index, model_name in enumerate(self._model_bpms):
                 reading = self.lattice[model_name].get_reading()
                 x[sample, index] = reading[0]

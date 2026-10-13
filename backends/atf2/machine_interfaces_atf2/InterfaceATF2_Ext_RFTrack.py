@@ -219,11 +219,8 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
 
     def __track_bunch(self):
         I0 = self.B0.get_info()
-        dx = self.jitter * I0.sigma_x
-        dy = self.jitter * I0.sigma_y
+        dx, dy, pitch, yaw = self._jitter_offsets(I0)
         dz, dt, roll = 0.0, 0.0, float(self.coupling_roll)
-        pitch = self.jitter * I0.sigma_py
-        yaw = self.jitter * I0.sigma_px
 
         #Uncomment for jitter subtraction tests
         # dx = self.rng.normal(0.0, self.jitter * I0.sigma_x)
@@ -386,6 +383,8 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         tmit = np.zeros(x.shape)
 
         for i in range(self.nsamples):
+            if self.jitter:
+                self.__track_bunch()
             for j, bpm in enumerate(self.bpms):
                 b = self.lattice[bpm]
                 reading = b.get_reading()

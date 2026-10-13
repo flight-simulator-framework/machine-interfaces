@@ -96,11 +96,8 @@ class InterfaceATF2_Linac_RFTrack(AbstractMachineInterface):
 
     def __track_bunch(self):
         I0 = self.B0.get_info()
-        dx = self.jitter * I0.sigma_x
-        dy = self.jitter * I0.sigma_y
+        dx, dy, pitch, yaw = self._jitter_offsets(I0)
         dz, dt, roll = 0.0, 0.0, 0.0
-        pitch = self.jitter * I0.sigma_py
-        yaw = self.jitter * I0.sigma_px
         B0_offset = self.B0.displaced(dx, dy, dz, dt, roll, pitch, yaw)
         self.B1 = self.lattice.track(B0_offset)
         I = self.B1.get_info()
@@ -499,6 +496,8 @@ class InterfaceATF2_Linac_RFTrack(AbstractMachineInterface):
         tmit = np.zeros(x.shape)
 
         for i in range(self.nsamples):
+            if self.jitter:
+                self.__track_bunch()
             for j, bpm in enumerate(self.bpms):
                 b = self.lattice[bpm]
                 reading = b.get_reading()
