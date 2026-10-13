@@ -14,6 +14,19 @@ except ImportError:
 # import ringcontrol.devices.magnets as magnets
 from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
+'''
+Note:
+Based on a terminal output from a remote shift, SysID was requesting a kick, but it was not set on correctors, so the
+response matrix was not well measured. 
+
+Also, we see that new bdes and readback are coming with some time offset...
+
+current_bdes = 6.454
+new_bdes     = 6.45397573
+after_bdes   = 6.454
+'''
+
+
 def get_unavailable_reason():
     if tango is None:
         return "ESRF interface requires the tango environment."

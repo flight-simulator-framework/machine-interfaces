@@ -45,8 +45,8 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
             screen.set_name(element.get_name())
             screen.set_length(element.get_length())
             element.replace_with(screen)
-                                                                                                # 1_000_000
-    def __init__(self, population=300 * rft.pC, jitter=0.01, bpm_resolution=0.01, nsamples=1, nparticles=1000):
+                                                                                                # 10 um = 0.01
+    def __init__(self, population=300 * rft.pC, jitter=0.01, bpm_resolution=0.00, nsamples=1, nparticles=1000):
         self.sigmaCut = 4.0
         self.Pref = 198 # MeV/c
         self.Q=-1
