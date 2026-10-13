@@ -34,7 +34,7 @@ def _default_tfs_path() -> Path:
     override = os.environ.get("ATF2_BT_RFT_TFS")
     if override:
         return Path(override).expanduser()
-    projects_root = Path(__file__).resolve().parents[3]
+    projects_root = Path(__file__).resolve().parents[4]
     return projects_root / "ATF2_LinacBT_RFTrack" / "generated" / "atf2_bt_1p542282GeV_RFTrack.twiss"
 
 

@@ -232,7 +232,7 @@ def _sad_project_root() -> Path:
     override = os.environ.get("ATF2_SAD_RFT_ROOT")
     if override:
         return Path(override).expanduser()
-    return Path(__file__).resolve().parents[3] / "ATF2_LinacBT_RFTrack"
+    return Path(__file__).resolve().parents[5] / "ATF2_LinacBT_RFTrack"
 
 
 def _load_rftrack_model(root: Path) -> ModuleType:

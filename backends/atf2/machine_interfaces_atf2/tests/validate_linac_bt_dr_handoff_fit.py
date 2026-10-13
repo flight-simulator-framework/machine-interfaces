@@ -11,8 +11,8 @@ import json
 
 import numpy as np
 
-from machine_interfaces_atf2.linac_bt_dr_handoff_fit import fit_transverse_handoff
-from machine_interfaces_atf2.simulate_linac_bt_dr_handoff import TransverseHandoff
+from machine_interfaces_atf2.tests.linac_bt_dr_handoff_fit import fit_transverse_handoff
+from machine_interfaces_atf2.tests.simulate_linac_bt_dr_handoff import TransverseHandoff
 
 
 def main() -> None:

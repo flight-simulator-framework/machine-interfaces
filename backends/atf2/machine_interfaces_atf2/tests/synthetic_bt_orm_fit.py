@@ -15,7 +15,7 @@ import json
 import numpy as np
 
 from machine_interfaces_atf2.InterfaceATF2_BT_RFTrack import InterfaceATF2_BT_RFTrack
-from machine_interfaces_atf2.synthetic_bt_calibration_audit import BTPseudoMachine, _measure_response, _physical_orbit
+from machine_interfaces_atf2.tests.synthetic_bt_calibration_audit import BTPseudoMachine, _measure_response, _physical_orbit
 
 
 FIT_QUADRUPOLES = ("QD10T", "QF11T", "QF20T")

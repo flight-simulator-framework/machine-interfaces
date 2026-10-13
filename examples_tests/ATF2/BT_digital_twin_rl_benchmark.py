@@ -22,7 +22,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from machine_interfaces_atf2.InterfaceATF2_BT_RFTrack import InterfaceATF2_BT_RFTrack
-from machine_interfaces_atf2.synthetic_bt_calibration_audit import (
+from machine_interfaces_atf2.tests.synthetic_bt_calibration_audit import (
     BTPseudoMachine,
     MAX_CORRECTION_T_MM,
     SVD_RCOND,

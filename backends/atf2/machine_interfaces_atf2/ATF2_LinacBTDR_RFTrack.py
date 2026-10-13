@@ -36,7 +36,7 @@ from machine_interfaces_atf2.DR_ATF2.ATF_DR_RFTrack_emittance import (
     find_synchronous_orbit,
 )
 from machine_interfaces_atf2.DR_ATF2.ATF_DR_RFTrack_twiss import load_atf_dr_twiss
-from machine_interfaces_atf2.simulate_linac_bt_dr_handoff import (
+from machine_interfaces_atf2.tests.simulate_linac_bt_dr_handoff import (
     DEFAULT_CAVITY_VOLTAGE_MV,
     DEFAULT_INPUT_MOMENTUM_MEV_C,
     TransverseHandoff,
@@ -188,7 +188,7 @@ def _sad_project_root() -> Path:
     override = os.environ.get("ATF2_SAD_RFT_ROOT")
     if override:
         return Path(override).expanduser()
-    return Path(__file__).resolve().parents[3] / "ATF2_LinacBT_RFTrack"
+    return Path(__file__).resolve().parents[4] / "ATF2_LinacBT_RFTrack"
 
 
 def _load_rftrack_model(root: Path) -> ModuleType:

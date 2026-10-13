@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from machine_interfaces_atf2.linac_bt_dr_rl_env import LinacBTDRInjectionEnv
+from machine_interfaces_atf2.tests.linac_bt_dr_rl_env import LinacBTDRInjectionEnv
 
 
 @dataclass(frozen=True)

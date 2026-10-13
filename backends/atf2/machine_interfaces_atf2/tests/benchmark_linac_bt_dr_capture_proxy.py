@@ -27,7 +27,7 @@ from machine_interfaces_atf2.DR_ATF2.ATF_DR_RFTrack_lattice import (
     HISTORICAL_ATF_DR_APERTURE_SOURCE,
     get_historical_extraction_kicker_apertures,
 )
-from machine_interfaces_atf2.simulate_linac_bt_dr_handoff import TransverseHandoff
+from machine_interfaces_atf2.tests.simulate_linac_bt_dr_handoff import TransverseHandoff
 
 
 # Offline RF voltage which brings the current SAD-derived reference exit to

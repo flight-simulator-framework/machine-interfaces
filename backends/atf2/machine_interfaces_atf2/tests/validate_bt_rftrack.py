@@ -4,7 +4,7 @@ Run from the flight-simulator directory with::
 
     MPLCONFIGDIR=/tmp/mpl-flight-simulator PYTHONPATH=. \
       /home/motokisato/rftrack-env/bin/python \
-      backends/atf2/machine_interfaces_atf2/validate_bt_rftrack.py
+      backends/atf2/machine_interfaces_atf2/tests/validate_bt_rftrack.py
 
 This is a geometric/reference-particle check.  It does not establish that
 the historical SAD optical functions, apertures, or live machine calibration

@@ -22,7 +22,7 @@ from machine_interfaces_atf2.DR_ATF2.ATF_DR_RFTrack_lattice import (
     HISTORICAL_ATF_DR_APERTURE_SOURCE,
     get_historical_extraction_kicker_apertures,
 )
-from machine_interfaces_atf2.benchmark_linac_bt_dr_capture_proxy import (
+from machine_interfaces_atf2.tests.benchmark_linac_bt_dr_capture_proxy import (
     MODEL_ENERGY_MATCHED_CAVITY_VOLTAGE_MV,
 )
 
