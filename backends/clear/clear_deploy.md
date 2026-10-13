@@ -9,7 +9,8 @@ The commands below:
 3. Check out `backends/clear`, including the deployment script.
 4. Run the deployment script, which:
    - Loads CERN Acc-Py.
-   - Clones the application repositories.
+   - Checks that the Acc-Py Python version is 3.11 or newer.
+   - Clones the application repositories from CERN GitLab.
    - Configures checkout to exclude paths related to other machines.
    - Creates or reuses a shared virtual environment.
    - Configures the Acc-Py package index and installs the local packages in editable mode, including the CLEAR backend.
@@ -24,6 +25,8 @@ git clone --filter=blob:none --sparse https://gitlab.cern.ch/flight-simulator/ma
 git -C machine-interfaces sparse-checkout add backends/clear
 bash machine-interfaces/backends/clear/deploy_clear.sh
 ```
+
+CERN GitLab holds mirrors of the [GitHub repositories](https://github.com/flight-simulator-framework), where development, issues and pull requests are hosted.
 
 ## B. Test the GUIs
 

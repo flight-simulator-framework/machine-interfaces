@@ -12,6 +12,10 @@ This repository provides a shared interface API and four accelerator-specific ba
 
 Accelerator-specific packages are located in `backends/<machine>` and provide interfaces to the control system or simulation. Installed packages register their interfaces through the `flight_simulator.interfaces` entry-point group. The selector displays only installed machines. Importing the registry does not connect to any machine.
 
+# Development
+
+Development, issues and pull requests are hosted on [GitHub](https://github.com/flight-simulator-framework/machine-interfaces). The [CERN GitLab repository](https://gitlab.cern.ch/flight-simulator/machine-interfaces) receives updates from GitHub through a pull mirror.
+
 # Installation
 
 For deployment on a control-room computer, follow the instructions for [CLEAR](backends/clear/clear_deploy.md), [ATF2](backends/atf2/atf2_deploy.md), [ESRF](backends/esrf/esrf_deploy.md) or [FACET2](backends/facet2/facet2_deploy.md).

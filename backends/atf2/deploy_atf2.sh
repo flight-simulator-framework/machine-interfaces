@@ -6,7 +6,7 @@ PY=$(readlink -f "$(command -v "${PYTHON:-python3}")")
 
 P=('/*' '!*clear*' '!*CLEAR*' '!*facet2*' '!*FACET2*' '!*esrf*' '!*ESRF*')
 for r in machine-interfaces response-matrix system-identification orbit-bump beam-based-alignment emittance-measurement atf2-knobs; do
-    [ -d $r ] || git clone --filter=blob:none --sparse https://gitlab.cern.ch/flight-simulator/$r.git
+    [ -d $r ] || git clone --filter=blob:none --sparse https://github.com/flight-simulator-framework/$r.git
     git -C $r sparse-checkout set --no-cone "${P[@]}"
 done
 
@@ -14,7 +14,7 @@ done
 source venv/bin/activate
 pip install -U pip
 pip install -e machine-interfaces -e machine-interfaces/backends/atf2 -e response-matrix \
-    -e system-identification -e beam-based-alignment -e emittance-measurement -e atf2-knobs
+    -e system-identification -e orbit-bump -e beam-based-alignment -e emittance-measurement -e atf2-knobs
 python -c "import epics, cpymad, RF_Track, machine_interfaces_atf2; print('OK')"
 make -C machine-interfaces/backends/atf2/machine_interfaces_atf2/libmagnet libmagnet.so CFLAG=-fPIC \
     || echo "WARNING: libmagnet.so not built (needs gcc and gfortran), magnet K/I conversion is unavailable."

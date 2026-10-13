@@ -6,7 +6,7 @@ PY=$(readlink -f "$(command -v "${PYTHON:-python3}")")
 
 P=('/*' '!*clear*' '!*CLEAR*' '!*atf2*' '!*ATF2*' '!*esrf*' '!*ESRF*')
 for r in machine-interfaces response-matrix system-identification orbit-bump beam-based-alignment emittance-measurement; do
-    [ -d $r ] || git clone --filter=blob:none --sparse https://gitlab.cern.ch/flight-simulator/$r.git
+    [ -d $r ] || git clone --filter=blob:none --sparse https://github.com/flight-simulator-framework/$r.git
     git -C $r sparse-checkout set --no-cone "${P[@]}"
 done
 
@@ -14,7 +14,7 @@ done
 source venv/bin/activate
 pip install -U pip
 pip install -e machine-interfaces -e machine-interfaces/backends/facet2 -e response-matrix \
-    -e system-identification -e beam-based-alignment -e emittance-measurement
+    -e system-identification -e orbit-bump -e beam-based-alignment -e emittance-measurement
 python -c "import epics, RF_Track, machine_interfaces_facet2; print('OK')"
 
 for f in */*_GUI.py; do
