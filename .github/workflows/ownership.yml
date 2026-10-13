@@ -1,0 +1,45 @@
+name: Ownership
+
+on:
+  pull_request_target:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  ownership:
+    name: ownership
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const author = pr.user.login.toLowerCase();
+            const { data } = await github.rest.repos.getContent({ owner, repo, path: '.github/CODEOWNERS', ref: pr.base.sha });
+            const rules = Buffer.from(data.content, 'base64').toString()
+              .split('\n')
+              .map(line => line.replace(/#.*/, '').trim())
+              .filter(Boolean)
+              .map(line => {
+                const [pattern, ...owners] = line.split(/\s+/);
+                return { pattern, owners: owners.map(o => o.replace(/^@/, '').toLowerCase()) };
+              });
+            const matches = (pattern, path) => {
+              if (pattern === '*') return true;
+              const p = pattern.replace(/^\//, '').replace(/\/$/, '');
+              return path === p || path.startsWith(p + '/');
+            };
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: pr.number, per_page: 100 });
+            const paths = [...new Set(files.flatMap(f => f.previous_filename ? [f.filename, f.previous_filename] : [f.filename]))];
+            const denied = paths.filter(path => {
+              const rule = rules.filter(r => matches(r.pattern, path)).pop();
+              return !rule || !rule.owners.includes(author);
+            });
+            if (denied.length) {
+              core.setFailed(`@${pr.user.login} is not an owner of:\n${denied.join('\n')}`);
+            } else {
+              core.info(`@${pr.user.login} owns all ${paths.length} changed files.`);
+            }
