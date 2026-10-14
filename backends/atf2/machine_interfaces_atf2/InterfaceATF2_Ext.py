@@ -1,7 +1,7 @@
 import RF_Track as rft
 import sys, time, math, os, threading, struct, ctypes, subprocess
 import numpy as np
-from epics import PV, ca, caget
+from epics import PV, ca, caget, caget_many
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 from collections import defaultdict
 from machine_interfaces_atf2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
@@ -421,7 +421,6 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         return self.qmag_alias_to_canonical.get(name, name)
 
     def get_quadrupoles(self, names=None, include_pv_names=False):
-        print(" 'get_quadrupoles' running...")
         if names is None:
             names = self.quadrupoles # quadrupoles names
         if type(names) == str:
@@ -431,29 +430,38 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         xdes, ydes, rolldes = [], [], []
         xact, yact, rollact = [], [], []
 
+        rows = []
+        mover_keys = ("pv_set_x", "pv_set_y", "pv_set_roll",
+                      "pv_read_enc_x", "pv_read_enc_y", "pv_read_enc_roll")
         for name in names:
-            print(" 'Getting quadrupoles' PVs ...")
             current_name = self._quadrupole_current_pv_name(name)
             mover_name = self._quad_mover_pv_name(name)
             mover_pv = self.qmag_pv.get(mover_name)
             if mover_pv is None:
                 mover_pv = self._build_qmag_pv_names(mover_name)
                 self.qmag_pv[mover_name] = mover_pv
-            desired_current = self._pv_get(f"{current_name}:currentWrite", default=np.nan, timeout=0.7)
-            actual_current = self._pv_get(f"{current_name}:current", default=np.nan, timeout=0.7)
+            rows.append((current_name, mover_pv))
+        pv_names = []
+        for current_name, mover_pv in rows:
+            pv_names.extend((f"{current_name}:currentWrite", f"{current_name}:current"))
+            pv_names.extend(mover_pv.get(key) for key in mover_keys)
+        print(f"Getting quadrupoles PVs: {len(names)} magnets (batch read)")
+        values = self._pv_get_many(pv_names)
+        fallback_names = [f"{current}:currentRead" for current, _ in rows
+                          if not np.isfinite(values.get(f"{current}:current", np.nan))]
+        fallbacks = self._pv_get_many(fallback_names)
+        for current_name, mover_pv in rows:
+            desired_current = values.get(f"{current_name}:currentWrite", np.nan)
+            actual_current = values.get(f"{current_name}:current", np.nan)
             if not np.isfinite(actual_current):
-                actual_current = self._pv_get(f"{current_name}:currentRead", default=np.nan, timeout=0.7)
+                actual_current = fallbacks.get(f"{current_name}:currentRead", np.nan)
             if not np.isfinite(desired_current):
                 desired_current = actual_current
 
             ides.append(desired_current)
             iact.append(actual_current)
-            xdes.append(self._pv_get(mover_pv.get("pv_set_x"), default=np.nan))
-            ydes.append(self._pv_get(mover_pv.get("pv_set_y"), default=np.nan))
-            rolldes.append(self._pv_get(mover_pv.get("pv_set_roll"), default=np.nan))
-            xact.append(self._pv_get(mover_pv.get("pv_read_enc_x"), default=np.nan))
-            yact.append(self._pv_get(mover_pv.get("pv_read_enc_y"), default=np.nan))
-            rollact.append(self._pv_get(mover_pv.get("pv_read_enc_roll"), default=np.nan))
+            for output, key in zip((xdes, ydes, rolldes, xact, yact, rollact), mover_keys):
+                output.append(values.get(mover_pv.get(key), np.nan))
 
         ides = np.array(ides, dtype=float)
         iact = np.array(iact, dtype=float)
@@ -2043,6 +2051,28 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             return float(val)
         except Exception:
             return default
+
+    def _pv_get_many(self, pv_names, default=np.nan, timeout=0.7):
+        """Issue asynchronous reads together; this is not an atomic snapshot.
+
+        Share a connection timeout across the batch. PyEPICS may still wait
+        up to timeout for each connected channel whose get has not completed.
+        """
+        names = list(dict.fromkeys(name for name in pv_names if name))
+        if not names:
+            return {}
+        try:
+            raw = caget_many(names, timeout=timeout, connection_timeout=timeout)
+        except Exception as exc:
+            print(f"Quadrupole PV batch read failed: {exc}")
+            return dict.fromkeys(names, default)
+        result = {}
+        for name, value in zip(names, raw):
+            try:
+                result[name] = float(value) if value is not None else default
+            except (TypeError, ValueError):
+                result[name] = default
+        return result
 
     def _pv_put(self, pv_name, value):
         PV(pv_name).put(value)
