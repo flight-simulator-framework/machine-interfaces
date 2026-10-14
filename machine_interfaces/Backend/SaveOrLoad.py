@@ -219,7 +219,6 @@ class SaveOrLoad():
             "is_jitter_subtraction_checked": is_jitter_subtraction_checked,
             "bpm_weights" : bpm_weights,
             "corrector_weights": getattr(self, "corrector_weights", {}),
-            "restore_on_low_transmission": self.restore_on_low_transmission_checkbox.isChecked(),
             "data_dirs": {k: (self._expand_data_path(v["dir"]) if v else None)
                           for k, v in self._data_dirs.items()},
         }
@@ -595,8 +594,6 @@ class SaveOrLoad():
         if "iters" in settings:  self.lineEdit_5.setText(str(settings["iters"]))
         if "gain" in settings: self.lineEdit_6.setText(str(settings["gain"]))
         if "beta" in settings: self.lineEdit_beta.setText(str(settings["beta"]))
-        if hasattr(self, "restore_on_low_transmission_checkbox"):
-            self.restore_on_low_transmission_checkbox.setChecked(settings.get("restore_on_low_transmission", False))
         if "nsamples" in settings and hasattr(self, "nsamples_input"):
             self.nsamples_input.setText(str(settings["nsamples"]))
         if "is_triangular" in settings: self.triangular_checkbox.setChecked(settings["is_triangular"])
