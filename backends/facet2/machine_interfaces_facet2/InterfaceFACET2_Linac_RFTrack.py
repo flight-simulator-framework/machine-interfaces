@@ -14,6 +14,7 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
     def __init__(self, population=rft.nC, jitter=0.0, bpm_resolution=0.0, nsamples=1, nparticles=1000):
         super().__init__()
         self.log = print
+        self.is_simulation = True
         self.lattice = FACET2.load_FACET()
         self.lattice.set_bpm_resolution(bpm_resolution)
         self.sequence = [ e.get_name() for e in self.lattice['*']]
@@ -459,11 +460,11 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
         name_to_index = {string: index for index, string in enumerate(self.sequence)}
         return [name_to_index.get(name, np.nan) for name in names]
 
-    def predict_emittance_scan_response(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=None, reference_screen=None):
-        full = self.predict_emittance_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=stop_checker)
+    def predict_emittance_scan_response(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=None, reference_screen=None, start_quad=None, quad_settings=None):
+        full = self.predict_emittance_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=stop_checker, quad_settings=quad_settings)
         return full["sigma_x"], full["sigma_y"]
 
-    def predict_emittance_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref=None, stop_checker=None, reference_screen=None):
+    def predict_emittance_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref=None, stop_checker=None, reference_screen=None, start_quad=None, quad_settings=None):
         # The beam is guessed at the start of the lattice (the linac accelerates it on the way to the quadrupole), so energy_pref is the momentum there.
         screens = list(screens)
         if quad_name not in self.quadrupoles:
@@ -474,6 +475,8 @@ class InterfaceFACET2_Linac_RFTrack(AbstractMachineInterface):
 
         lattice_reference = self.lattice
         self.lattice = lattice_reference.clone()  # the scan and the offsets only change this copy
+        if quad_settings:
+            self.set_quadrupoles(list(quad_settings), list(quad_settings.values()), track=False)
         if any(value is not None for value in (quad_dx0, quad_dy0, quad_roll)):
             self.lattice[quad_name].set_offsets(quad_dx0 or 0.0, quad_dy0 or 0.0, 0.0, quad_roll or 0.0, 0.0, 0.0, "center")
         last_screen = max(screens, key=self.screens.index)

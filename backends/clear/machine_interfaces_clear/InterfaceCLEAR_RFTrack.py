@@ -500,20 +500,24 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
 
         return sigx, sigy
 
-    def _predict_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref=None, stop_checker=None, reference_screen=None):
+    def _predict_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref=None, stop_checker=None, reference_screen=None, start_quad=None, quad_settings=None):
         screens = self._model_screen_names(screens)
         reference_screen = self._model_screen_names(reference_screen)
         screens = list(screens)
         quad_setting_values = np.asarray(quad_setting_values, dtype=float)
         if reference_screen is None: reference_screen = screens[0]
         end_element_name = str(screens[-1])
-        start_element_name = str(quad_name)
+        start_element_name = str(start_quad or quad_name)
         B0_original = self.B0
         lattice_reference = self.lattice
         self.lattice = lattice_reference.clone()
+        if quad_settings:
+            self.set_quadrupoles(list(quad_settings), list(quad_settings.values()), track=False)
         start_element = self.lattice[start_element_name]
         if isinstance(start_element, list):
             start_element = start_element[0]
+        quad_element = self.lattice[quad_name]
+        quad_element = quad_element[0] if isinstance(quad_element, list) else quad_element
         override_offsets = any(value is not None for value in (quad_dx0, quad_dy0, quad_roll))
         dx = 0.0 if quad_dx0 is None else float(quad_dx0)
         dy = 0.0 if quad_dy0 is None else float(quad_dy0)
@@ -530,7 +534,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
 
         try:
             if override_offsets:
-                start_element.set_offsets(dx, dy, 0.0, roll, 0.0, 0.0, "center")
+                quad_element.set_offsets(dx, dy, 0.0, roll, 0.0, 0.0, "center")
             for k,quad_setting in enumerate(quad_setting_values):
                 if callable(stop_checker) and stop_checker():
                     raise RuntimeError("__OPTIMIZATION_STOP__")
@@ -579,12 +583,12 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
             **twiss,
         }
 
-    def predict_emittance_scan_response(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker = None, reference_screen = None):
-        full = self._predict_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=stop_checker, reference_screen=reference_screen)
+    def predict_emittance_scan_response(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker = None, reference_screen = None, start_quad=None, quad_settings=None):
+        full = self._predict_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, stop_checker=stop_checker, reference_screen=reference_screen, start_quad=start_quad, quad_settings=quad_settings)
         return full["sigma_x"], full["sigma_y"]
 
-    def predict_emittance_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref=None, stop_checker=None, reference_screen=None):
-        return self._predict_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=quad_dx0, quad_dy0=quad_dy0, quad_roll=quad_roll, energy_pref=energy_pref, stop_checker=stop_checker, reference_screen=reference_screen)
+    def predict_emittance_scan_response_full(self, quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=None, quad_dy0=None, quad_roll=None, energy_pref=None, stop_checker=None, reference_screen=None, start_quad=None, quad_settings=None):
+        return self._predict_scan_response_full(quad_name, screens, quad_setting_values, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, quad_dx0=quad_dx0, quad_dy0=quad_dy0, quad_roll=quad_roll, energy_pref=energy_pref, stop_checker=stop_checker, reference_screen=reference_screen, start_quad=start_quad, quad_settings=quad_settings)
 
     def get_phase_space_transport_to_screens(self, reference_screen=None, screens=None):
         screens = self._model_screen_names(screens)

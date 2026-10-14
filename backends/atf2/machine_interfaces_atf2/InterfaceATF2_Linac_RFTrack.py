@@ -340,7 +340,7 @@ class InterfaceATF2_Linac_RFTrack(AbstractMachineInterface):
         try:
             from cpymad.madx import Madx
             madx = Madx(stdout=True)
-            madx.call(self.madx_path);
+            madx.call(self.madx_path, chdir = True)
         except Exception as e:
             self.log("Could not get endlinac twiss data")
 
