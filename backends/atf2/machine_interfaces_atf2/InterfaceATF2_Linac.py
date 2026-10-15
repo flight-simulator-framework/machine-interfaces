@@ -286,14 +286,16 @@ class InterfaceATF2_Linac(AbstractMachineInterface):
     def get_bpms(self, names=None):
         print('Reading bpms...')
         p = PV('LINAC:monitors')
-        x, y, tmit = [], [], []
+        x, y, tmit, statuses, intensities = [], [], [], [], []
         for sample in range(self.nsamples):
             print(f'Sample = {sample}')
             a_pv = p.get()
             if hasattr(a_pv, "__len__") and len(a_pv) >= 20:
                 a = a_pv.reshape((-1, 20))
-                status = a[self.bpm_indexes, 0]
-                status[status != 1] = 0
+                raw_status = a[self.bpm_indexes, 0].copy()
+                statuses.append(raw_status)
+                intensities.append(a[self.bpm_indexes, 3].copy())
+                status = np.where(raw_status == 1, 1.0, 0.0)
                 if np.sum(np.isnan(a[self.bpm_indexes, 1:2])):
                     print('Attention please!!! Nan in raw data.... !!!!')
                 x.append(a[self.bpm_indexes, 1])
@@ -306,6 +308,8 @@ class InterfaceATF2_Linac(AbstractMachineInterface):
             "x": np.vstack(x) / 1e3 if len(x) else np.empty((0, 0)),
             "y": np.vstack(y) / 1e3 if len(y) else np.empty((0, 0)),
             "tmit": np.vstack(tmit) if len(tmit) else np.empty((0, 0)),
+            "status": np.vstack(statuses) if statuses else np.empty((0, 0)),
+            "intensity": np.vstack(intensities) if intensities else np.empty((0, 0)),
         }
 
         if isinstance(names, str):
@@ -317,6 +321,8 @@ class InterfaceATF2_Linac(AbstractMachineInterface):
                 "x": np.asarray(bpms["x"])[:, idx],
                 "y": np.asarray(bpms["y"])[:, idx],
                 "tmit": np.asarray(bpms["tmit"])[:, idx],
+                "status": np.asarray(bpms["status"])[:, idx],
+                "intensity": np.asarray(bpms["intensity"])[:, idx],
             }
 
         return bpms

@@ -4,6 +4,24 @@ from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachi
 from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 from epics import PV, ca, caget
 
+# Numbered DR:monitors slots; MB20R/MB75R are absent from the live interface list.
+DR_BPM_NAMES = tuple(f"MB{i}R" for i in range(1, 99) if i not in (20, 75))
+
+
+class DRBPMReader:
+    """Read-only BPM access without constructing the DR control interface."""
+    def __init__(self, nsamples=1):
+        self.nsamples = nsamples
+        self.bpm_sample_interval_s = 0.5
+        self.bpms = list(DR_BPM_NAMES)
+        self.log = print
+
+    def get_bpms(self, names=None):
+        selected = self.bpms if names is None else ([names] if isinstance(names, str) else list(names))
+        if not selected or any(name not in DR_BPM_NAMES for name in selected):
+            raise ValueError("Select valid DR BPM names")
+        return InterfaceATF2_DR.get_bpms(self, selected)
+
 class InterfaceATF2_DR(AbstractMachineInterface):
     def get_name(self):
         return 'ATF2_DR'
@@ -389,7 +407,7 @@ class InterfaceATF2_DR(AbstractMachineInterface):
     def get_bpms(self, names=None):
         self.log('Reading bpms...')
         p = PV('DR:monitors')
-        x, y, tmit = [], [], []
+        x, y, tmit, statuses, intensities = [], [], [], [], []
         max_attempts = max(1, int(self.nsamples) * 3)
         sample = 0
         attempts = 0
@@ -412,13 +430,15 @@ class InterfaceATF2_DR(AbstractMachineInterface):
                 if isinstance(names, str):
                     names = [names]
 
-                x_, y_, tmit_ = [], [], []
+                x_, y_, tmit_, statuses_, intensities_ = [], [], [], [], []
                 for name in names:
                     # it can also be written as
                     # re.findall(r'\d+', "MB12R") --> ['12']
                     k = int(name[2:-1])-1
                     charge = a[k,3]
                     status = a[k,0]
+                    statuses_.append(status)
+                    intensities_.append(charge)
                     valid = (status == 1) & np.isfinite(charge) & (charge > 0)
                     if valid:
                         x_.append(a[k,1])
@@ -432,14 +452,16 @@ class InterfaceATF2_DR(AbstractMachineInterface):
                 x.append(np.asarray(x_))
                 y.append(np.asarray(y_))
                 tmit.append(np.asarray(tmit_))
+                statuses.append(np.asarray(statuses_))
+                intensities.append(np.asarray(intensities_))
 
                 self.log(f'Interface::get_bpms() = {x}')
                 sample += 1
-                time.sleep(1)
+                time.sleep(getattr(self, "bpm_sample_interval_s", 1.0))
 
             except Exception as e:
                 self.log(f'An error occurred while reading DR BPM sample: {e}')
-                time.sleep(1)
+                time.sleep(getattr(self, "bpm_sample_interval_s", 1.0))
 
         x = np.asarray(x)
         y = np.asarray(y)
@@ -450,6 +472,8 @@ class InterfaceATF2_DR(AbstractMachineInterface):
             "x": np.vstack(x) / 1e3, # mm
             "y": np.vstack(y) / 1e3, # mm
             "tmit": np.vstack(tmit),
+            "status": np.vstack(statuses),
+            "intensity": np.vstack(intensities),
         }
 
         return bpms
