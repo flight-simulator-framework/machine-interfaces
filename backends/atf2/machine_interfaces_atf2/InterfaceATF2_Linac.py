@@ -54,9 +54,10 @@ def _build_beamline(sequence, monitors):
         bpms_unknown = [bpm for bpm in monitors_from_sequence if bpm not in monitors]
         print(f'Unknown bpms {bpms_unknown} removed from list')
     sequence_filtered = [element for element in sequence if (element in monitors) or element.lower().startswith('z')]
-    bpms = [string for string in sequence_filtered if not string.lower().startswith('z')]
+    bpms = list(dict.fromkeys(string for string in sequence_filtered if not string.lower().startswith('z')))
     corrs = [string for string in sequence_filtered if string.lower().startswith('z')]
-    bpm_indexes = [index for index, string in enumerate(monitors) if string in bpms]
+    # Columns must follow BPM names, not the (different) waveform row order.
+    bpm_indexes = [monitors.index(name) for name in bpms]
     return sequence_filtered, bpms, corrs, bpm_indexes
 
 
@@ -301,7 +302,7 @@ class InterfaceATF2_Linac(AbstractMachineInterface):
                 x.append(a[self.bpm_indexes, 1])
                 y.append(a[self.bpm_indexes, 2])
                 tmit.append(status * a[self.bpm_indexes, 3])
-            time.sleep(0.35)
+            time.sleep(getattr(self, "bpm_sample_interval_s", 0.35))
 
         bpms = {
             "names": self.bpms,
