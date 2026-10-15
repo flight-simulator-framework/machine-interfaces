@@ -6,21 +6,110 @@ from epics import PV, ca, caget
 
 # Numbered DR:monitors slots; MB20R/MB75R are absent from the live interface list.
 DR_BPM_NAMES = tuple(f"MB{i}R" for i in range(1, 99) if i not in (20, 75))
+DR_BPM_TURN_PV = "DRBPM:INJ:TURN_COUNT"
+
+
+class DRBPMTurnControlError(RuntimeError):
+    """Turn selection/restoration failed; do not retry optimization blindly."""
 
 
 class DRBPMReader:
-    """Read-only BPM access without constructing the DR control interface."""
+    """BPM access; read-only unless an explicit turn scan is enabled."""
     def __init__(self, nsamples=1):
         self.nsamples = nsamples
         self.bpm_sample_interval_s = 0.5
         self.bpms = list(DR_BPM_NAMES)
         self.log = print
+        self.configure_turn_scan()
+
+    def configure_turn_scan(self, enabled=False, start=1, end=10, aggregation="mean", cancelled=None, endpoints_only=False):
+        if int(start) != start or int(end) != end or not 1 <= start <= end:
+            raise ValueError("DR turns must be positive integers with start <= end")
+        if aggregation not in ("mean", "sum"):
+            raise ValueError("DR turn aggregation must be mean or sum")
+        self.turn_scan_enabled = bool(enabled)
+        self.turn_start, self.turn_end = int(start), int(end)
+        self.turn_aggregation = aggregation
+        self.endpoints_only = bool(endpoints_only)
+        self.cancelled = cancelled or (lambda: False)
 
     def get_bpms(self, names=None):
         selected = self.bpms if names is None else ([names] if isinstance(names, str) else list(names))
         if not selected or any(name not in DR_BPM_NAMES for name in selected):
             raise ValueError("Select valid DR BPM names")
-        return InterfaceATF2_DR.get_bpms(self, selected)
+        if not self.turn_scan_enabled:
+            return InterfaceATF2_DR.get_bpms(self, selected)
+        return self._get_turn_scan(selected)
+
+    def _get_turn_scan(self, selected):
+        if self.cancelled():
+            raise InterruptedError("DR turn scan stopped")
+        selector = PV(DR_BPM_TURN_PV)
+        if not selector.wait_for_connection(timeout=2.):
+            raise DRBPMTurnControlError(f"Cannot connect to {DR_BPM_TURN_PV}")
+
+        def read_turn():
+            try:
+                value = selector.get(use_monitor=False, timeout=2.)
+                if value is None or not np.isfinite(float(value)) or float(value) != int(value):
+                    raise ValueError(f"Invalid integer turn: {value}")
+                return int(value)
+            except Exception as exc:
+                raise DRBPMTurnControlError(f"Cannot read {DR_BPM_TURN_PV}: {exc}") from exc
+
+        def write_turn(value):
+            try:
+                if selector.put(int(value), wait=True, timeout=2.) != 1:
+                    raise RuntimeError("PV put did not complete")
+            except Exception as exc:
+                raise DRBPMTurnControlError(f"Failed to set {DR_BPM_TURN_PV}={value}: {exc}") from exc
+            if read_turn() != value:
+                raise DRBPMTurnControlError(f"Turn readback does not match requested {value}")
+
+        original = read_turn()
+        limits = selector.get_ctrlvars(timeout=2.) or {}
+        lower, upper = limits.get("lower_ctrl_limit"), limits.get("upper_ctrl_limit")
+        if lower is not None and upper is not None and np.isfinite(lower) and np.isfinite(upper) and upper > lower:
+            if self.turn_start < lower or self.turn_end > upper:
+                raise DRBPMTurnControlError(f"Requested DR turns exceed PV limits [{lower}, {upper}]")
+        previous_force_read = getattr(self, "bpm_force_read", False)
+        self.bpm_force_read = True
+        measurements = []
+        turns = sorted(set((self.turn_start, self.turn_end))) if self.endpoints_only else list(range(self.turn_start, self.turn_end + 1))
+        try:
+            for turn in turns:
+                if self.cancelled():
+                    raise InterruptedError("DR turn scan stopped")
+                write_turn(turn)
+                time.sleep(0.5)  # Always settle the selector before reading any BPM waveform.
+                if self.cancelled():
+                    raise InterruptedError("DR turn scan stopped")
+                self.log(f"[DR BPM] reading turn {turn} ({self.turn_start}..{self.turn_end}, {self.turn_aggregation})")
+                values = InterfaceATF2_DR.get_bpms(self, selected)
+                if read_turn() != turn:
+                    raise DRBPMTurnControlError("DR turn selector changed during acquisition; check other clients")
+                for key in ("intensity", "status", "x", "y", "tmit"):
+                    if np.asarray(values[key]).shape != (int(self.nsamples), len(selected)):
+                        raise RuntimeError(f"Incomplete DR turn {turn} {key} samples")
+                measurements.append(values)
+        finally:
+            self.bpm_force_read = previous_force_read
+            try:
+                write_turn(original)
+            except Exception as exc:
+                raise DRBPMTurnControlError(
+                    f"Could not restore {DR_BPM_TURN_PV} to {original}; check selector manually: {exc}") from exc
+
+        aggregate = np.sum if self.turn_aggregation == "sum" else np.mean
+        result = {"names": list(selected), "turns": turns,
+                  "turn_aggregation": self.turn_aggregation,
+                  "turn_data": dict(zip(turns, measurements))}
+        for key in ("intensity", "tmit"):
+            result[key] = aggregate(np.stack([data[key] for data in measurements]), axis=0)
+        for key in ("x", "y"):
+            result[key] = np.mean(np.stack([data[key] for data in measurements]), axis=0)
+        result["status"] = np.all(np.stack([data["status"] for data in measurements]) == 1, axis=0).astype(int)
+        return result
 
 class InterfaceATF2_DR(AbstractMachineInterface):
     def get_name(self):
@@ -413,10 +502,13 @@ class InterfaceATF2_DR(AbstractMachineInterface):
         attempts = 0
 
         while sample < int(self.nsamples) and attempts < max_attempts:
+            if getattr(self, "cancelled", lambda: False)():
+                raise InterruptedError("DR BPM acquisition stopped")
             attempts += 1
             try:
                 self.log(f'Sample = {sample} attempt to read bpms = {attempts}')
-                data_returned = p.get()
+                data_returned = (p.get(use_monitor=False, timeout=2.)
+                                 if getattr(self, "bpm_force_read", False) else p.get())
                 if data_returned is None:
                     raise RuntimeError('DR:monitors returned None')
                 data_returned = np.asarray(data_returned, dtype=float)
