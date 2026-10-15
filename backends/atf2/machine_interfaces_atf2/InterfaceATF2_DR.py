@@ -7,20 +7,45 @@ from epics import PV, ca, caget
 # Numbered DR:monitors slots; MB20R/MB75R are absent from the live interface list.
 DR_BPM_NAMES = tuple(f"MB{i}R" for i in range(1, 99) if i not in (20, 75))
 DR_BPM_TURN_PV = "DRBPM:INJ:TURN_COUNT"
+DR_BPM_ORBIT_MODE_PV = "DRBPM:ORBIT_MODE"
 
 
 class DRBPMTurnControlError(RuntimeError):
-    """Turn selection/restoration failed; do not retry optimization blindly."""
+    """Turn selection failed; do not retry optimization blindly."""
 
 
 class DRBPMReader:
-    """BPM access; read-only unless an explicit turn scan is enabled."""
+    """BPM access; writes only when mode control or turn scanning is configured."""
     def __init__(self, nsamples=1):
         self.nsamples = nsamples
         self.bpm_sample_interval_s = 0.5
         self.bpms = list(DR_BPM_NAMES)
         self.log = print
+        self.orbit_mode = None  # Legacy stand-alone readers remain read-only.
         self.configure_turn_scan()
+
+    def configure_orbit_mode(self, mode):
+        if mode is not None and mode not in (0, 1, 2, 3):
+            raise ValueError("DR BPM mode must be 0:TBT, 1:COD, 2:Injection or 3:Extraction")
+        self.orbit_mode = None if mode is None else int(mode)
+
+    def apply_orbit_mode(self):
+        if self.orbit_mode is None:
+            return
+        if self.cancelled():
+            raise InterruptedError("DR BPM acquisition stopped")
+        try:
+            pv = PV(DR_BPM_ORBIT_MODE_PV)
+            if not pv.wait_for_connection(timeout=2.):
+                raise RuntimeError("PV is not connected")
+            if pv.get(use_monitor=False, timeout=2.) != self.orbit_mode:
+                if pv.put(self.orbit_mode, wait=True, timeout=2.) != 1:
+                    raise RuntimeError("PV put did not complete")
+                time.sleep(0.5)
+                if pv.get(use_monitor=False, timeout=2.) != self.orbit_mode:
+                    raise RuntimeError("Mode readback mismatch")
+        except Exception as exc:
+            raise DRBPMTurnControlError(f"Cannot set {DR_BPM_ORBIT_MODE_PV}={self.orbit_mode}: {exc}") from exc
 
     def configure_turn_scan(self, enabled=False, start=1, end=10, aggregation="mean", cancelled=None, endpoints_only=False):
         if int(start) != start or int(end) != end or not 1 <= start <= end:
@@ -37,6 +62,7 @@ class DRBPMReader:
         selected = self.bpms if names is None else ([names] if isinstance(names, str) else list(names))
         if not selected or any(name not in DR_BPM_NAMES for name in selected):
             raise ValueError("Select valid DR BPM names")
+        self.apply_orbit_mode()
         if not self.turn_scan_enabled:
             return InterfaceATF2_DR.get_bpms(self, selected)
         return self._get_turn_scan(selected)
@@ -66,7 +92,6 @@ class DRBPMReader:
             if read_turn() != value:
                 raise DRBPMTurnControlError(f"Turn readback does not match requested {value}")
 
-        original = read_turn()
         limits = selector.get_ctrlvars(timeout=2.) or {}
         lower, upper = limits.get("lower_ctrl_limit"), limits.get("upper_ctrl_limit")
         if lower is not None and upper is not None and np.isfinite(lower) and np.isfinite(upper) and upper > lower:
@@ -94,11 +119,8 @@ class DRBPMReader:
                 measurements.append(values)
         finally:
             self.bpm_force_read = previous_force_read
-            try:
-                write_turn(original)
-            except Exception as exc:
-                raise DRBPMTurnControlError(
-                    f"Could not restore {DR_BPM_TURN_PV} to {original}; check selector manually: {exc}") from exc
+            # Leave the selector at the last commanded turn, even on stop/error.
+            # The next acquisition starts its configured sequence again.
 
         aggregate = np.sum if self.turn_aggregation == "sum" else np.mean
         result = {"names": list(selected), "turns": turns,
