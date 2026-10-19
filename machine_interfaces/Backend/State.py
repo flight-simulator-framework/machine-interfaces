@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pickle
 import gzip
+import warnings
 
 def reject_large_outliers(values, factor=10.0):
     arr = np.asarray(values, dtype=float).copy()
@@ -118,21 +119,20 @@ class State:
 
     def get_orbit(self, names=None):
         bpms = self.get_bpms(names)
-        # x = np.mean(bpms['x'],axis=0) # mm
-        # y = np.mean(bpms['y'],axis=0) # mm
-        # stdx = np.std(bpms['x'],axis=0) # mm #standard deviation
-        # stdy = np.std(bpms['y'],axis=0) # mm
-        # tmit = np.mean(bpms['tmit'],axis=0)
-        # nshots=int(np.shape(bpms['x'])[0])
-        # faulty = (x == 0.0) & (y == 0.0)
-        x_all = reject_large_outliers(bpms['x'])
-        y_all = reject_large_outliers(bpms['y'])
         tmit_all = np.asarray(bpms['tmit'], dtype=float)
-        x = np.nanmean(x_all, axis=0)  # mm
-        y = np.nanmean(y_all, axis=0)  # mm
-        stdx = np.nanstd(x_all, axis=0)  # mm
-        stdy = np.nanstd(y_all, axis=0)  # mm
-        tmit = np.nanmean(tmit_all, axis=0)
+        signal = np.abs(tmit_all)
+        reference_signal = np.nanmedian(signal, axis=0)
+        valid_signal = (np.isfinite(signal) & (signal > 0) & (signal >= 0.5 * reference_signal))
+        tmit_all = np.where(valid_signal, tmit_all, np.nan)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            x_all = reject_large_outliers(np.where(valid_signal, np.asarray(bpms['x'], dtype=float), np.nan))
+            y_all = reject_large_outliers(np.where(valid_signal, np.asarray(bpms['y'], dtype=float), np.nan))
+            x = np.nanmean(x_all, axis=0)  # mm
+            y = np.nanmean(y_all, axis=0)  # mm
+            stdx = np.nanstd(x_all, axis=0)  # mm
+            stdy = np.nanstd(y_all, axis=0)  # mm
+            tmit = np.nanmean(tmit_all, axis=0)
         nshots = int(np.shape(x_all)[0])
         faulty = np.isnan(x) | np.isnan(y) | ((x == 0.0) & (y == 0.0))
         x[faulty] = np.nan

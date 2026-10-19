@@ -31,6 +31,7 @@ scaling_factors = {
     "BPM0820": {"H": -0.346, "V": -0.392},
     "BPM0890": {"H": -0.391, "V": -0.417},
 }
+MOMENTUM_DROP_FOR_20_DEG_RF_PHASE = 0.08
 
 def get_unavailable_reason():
     if pyda is None or pyda_japc is None:
@@ -41,6 +42,11 @@ def get_unavailable_reason():
 class CLEAR_real_machine(AbstractMachineInterface):
     def get_name(self):
         return 'CLEAR'
+
+    @property
+    def dfs_test_energy(self):
+        change = np.deg2rad(float(self.rf_phase_test) - float(self.rf_phase_nominal))
+        return 1.0 - MOMENTUM_DROP_FOR_20_DEG_RF_PHASE * (1.0 - np.cos(change)) / (1.0 - np.cos(np.deg2rad(20.0)))
 
     def __init__(self, nsamples=3, bg_shots=10.0 ):
         reason = get_unavailable_reason()
@@ -185,7 +191,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
     def _get_elements_positions_show_beamline(self, names=None):
         if isinstance(names, str):
             names = [names]
-        all_names = [name for name in self.tracking_interface.get_sequence() if names is None or name in names]
+        all_names = [name for name in self.tracking_interface.sequence if names is None or name in names]
 
         return {
             "names": all_names,
@@ -443,13 +449,14 @@ class CLEAR_real_machine(AbstractMachineInterface):
         selected_names = self.bpms if names is None else ([names] if isinstance(names, str) else list(names))
         x, y, tmit = [], [], []
         mode = self.bpm_mode
-        for sample in range(self.nsamples):
+        sample, attempts, previous_cycle = 0, 0, None
+        while sample < self.nsamples:
             self.log(f'Sample = {sample}')
-            x_sample, y_sample, tmit_sample = [], [], []
+            x_sample, y_sample, tmit_sample, cycles = [], [], [], set()
             for bpm in selected_names:
-                hsamples = self.client.get(f"{bpm}H-SA/SamplesFromTrigger", context = self.context_acquisition).data
-                vsamples = self.client.get(f"{bpm}V-SA/SamplesFromTrigger", context=self.context_acquisition).data
-                ssamples = self.client.get(f"{bpm}S-SA/SamplesFromTrigger", context=self.context_acquisition).data
+                responses = [self.client.get(f"{bpm}{plane}-SA/SamplesFromTrigger", context=self.context_acquisition) for plane in "HVS"]
+                cycles.update(response.header.cycle_timestamp for response in responses)
+                hsamples, vsamples, ssamples = (response.data for response in responses)
 
                 H_samples = change_inverted_bpm_polarity(np.asarray(hsamples["samples"], dtype=float).ravel(), bpm)
                 V_samples = change_inverted_bpm_polarity(np.asarray(vsamples["samples"], dtype=float).ravel(), bpm)
@@ -500,9 +507,18 @@ class CLEAR_real_machine(AbstractMachineInterface):
                 tmit_sample.append(s_sum)
                 if np.isclose(H, 0.0) or np.isclose(V, 0.0):
                     print(f"Zero detected in the readout of the BPMs! Check your error bars. BPM affected: {bpm}, H = {H}, V = {V}")
+            cycles.discard(None)
+            not_one_new_pulse = len(cycles) > 1 or cycles == {previous_cycle}
+            if not_one_new_pulse and attempts < 4:
+                attempts += 1
+                self.log(f"Sample {sample}: BPM readings are not from one new beam pulse, reading again")
+                continue
+            if not_one_new_pulse:
+                self.log(f"Sample {sample}: BPM readings are still not from one new beam pulse, using them anyway")
             x.append(x_sample)
             y.append(y_sample)
             tmit.append(tmit_sample)
+            previous_cycle, attempts, sample = max(cycles, default=None), 0, sample + 1
             time.sleep(1)
 
         return {
@@ -519,7 +535,7 @@ class CLEAR_real_machine(AbstractMachineInterface):
             return self.make_safe_float(data.get(field), default=np.nan)
         return self._wait_for_readback(read_value, target, description=f"{property_address}#{field}", tolerance=tolerance, timeout=timeout)
 
-    def _wait_for_corrector_readbacks(self, names, targets, tolerance=0.1, timeout=10.0, poll_interval=0.05):
+    def _wait_for_corrector_readbacks(self, names, targets, tolerance=0.01, timeout=10.0, poll_interval=0.05):
         targets = {name: float(target) for name, target in zip(names, targets)}
         pending = set(targets)
         last_values = {name: np.nan for name in targets}

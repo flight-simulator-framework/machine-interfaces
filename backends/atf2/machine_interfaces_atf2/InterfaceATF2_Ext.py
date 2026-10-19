@@ -8,6 +8,9 @@ from machine_interfaces_atf2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_
 from machine_interfaces_atf2.MagKi import load_mag_ki
 from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
+DR_FREQ = 714e3  # 714 MHz in kHz
+DR_MOMENTUM_COMPACTION = 2.1e-3
+
 class CurrentDropToZeroError(RuntimeError):
     def __init__(self, message, *, target=None, readback=None, magnets=None):
         super().__init__(message)
@@ -220,7 +223,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             # Use the alias itself for mover PVs (e.g. QM16FF:MAG:DES:X).
             self.qmag_pv[alias] = self._build_qmag_pv_names(alias)
         self.bg_shots = int(bg_shots)
-        self.quadrupole_scaling_factor = 0.5
+        self.quadrupole_scaling_factor = 0.75
         self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def current_to_k1l(self, name, current_A):
@@ -852,6 +855,10 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
     def _pv_readback(self, pv_name):
         return lambda: self.make_safe_float(PV(pv_name).get(), default=np.nan)
 
+    @property
+    def dfs_test_energy(self):
+        return 1.0 - float(self.energy_frequency_offset_khz) / DR_FREQ / DR_MOMENTUM_COMPACTION
+
     def change_energy(self, delta_freq=None, method = EnergyChangeMethod.DEFAULT):
         if method == EnergyChangeMethod.DEFAULT:
             if delta_freq is None:
@@ -861,9 +868,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             ### delta_freq MUST MATCH :MI2: to EPICS --> means "MINUS2"
             # PV('RAMP:MI2:ONOFF_SW').put(1)
             self._set_and_verify(lambda: PV('RAMP:PL4:ONOFF_SW').put(1), self._pv_readback('RAMP:PL4:ONOFF_SW'), 1, description="RAMP:PL4:ONOFF_SW (energy change)", tolerance=1e-3)
-            DR_freq = 714e3  # 714 MHz in kHz
-            DR_momentum_compaction = 2.1e-3
-            dP_P = -float(delta_freq) / DR_freq / DR_momentum_compaction
+            dP_P = -float(delta_freq) / DR_FREQ / DR_MOMENTUM_COMPACTION
             return dP_P
         elif method == EnergyChangeMethod.QUADRUPOLE_SCALING:
             return self.scale_quadrupoles()

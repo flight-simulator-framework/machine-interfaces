@@ -45,10 +45,10 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         self.Q = -1
         self.dfs_test_energy = 0.98
         self.wfs_test_charge = 0.90
+        self.corrector_gauss_m_per_A = {}
         self._beam_mode = "nominal"
         self.coupling_roll = 0.0
         self.__setup_beam0()
-        self.__track_bunch()
         self._saved_sextupoles_state = None
         self.qmag_xdes = {name: 0.0 for name in self.quadrupoles}
         self.qmag_ydes = {name: 0.0 for name in self.quadrupoles}
@@ -57,18 +57,13 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         self.bg_shots = int(bg_shots)
         self.machine_name = "ATF2"
         self.lattice.align_elements()
-        '''Uncomment lines below to scatter elements in the lattice.
-            L.scatter_elements(type, dX, dY, dZ, roll, pitch, yaw, reference=’entrance’);
-        '''
-        #self.lattice.scatter_elements('quadrupole', 0, 0, 0, 0.100, 0, 0, 'center')
-        #self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0.100, 0, 0, 0, 'center')
-        #self.lattice.scatter_elements('quadrupole', 0.500, 0.500, 0, 0, 0, 0, 'center')
-        #self.lattice.scatter_elements('quadrupole', 0.500, 0.500, 0.500, 0, 0, 0, 'center')
-        #self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
+        self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0.100, 0, 0, 0, 'center')
+        self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
+        self.__track_bunch()
 
-        for el in self._map_quadrupoles_names_from_lattice("QD18X"):
-                            # dx # dy #dz #roll #pitch #yaw
-            el.set_offsets(0.5e-3, 0.5e-3, 0.0, 0, 0.0, 0.0, "center")  # 0.5 mm dx, meters+radians
+        # for el in self._map_quadrupoles_names_from_lattice("QD18X"):
+        #                     # dx # dy #dz #roll #pitch #yaw
+        #     el.set_offsets(0.5e-3, 0.5e-3, 0.0, 0, 0.0, 0.0, "center")  # 0.5 mm dx, meters+radians
 
         # ----------------------------
         # Knobs (linear / nonlinear)
@@ -91,7 +86,7 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
                           'QF17X', 'QK4X', 'QD18X', 'QF19X', 'QD20X', 'QF21X', 'QM16FF', 'QM15FF', 'QM14FF', 'QM13FF',
                           'QM12FF', 'QM11FF', 'QD10BFF', 'QD10AFF', 'QF9BFF', 'QF9AFF', 'QD8FF', 'QF7FF', 'QD6FF',
                           'QF5BFF', 'QF5AFF', 'QD4BFF', 'QD4AFF', 'QF3FF', 'QD2BFF', 'QD2AFF', 'QF1FF', 'QD0FF']
-        self.quadrupole_scaling_factor = 0.5
+        self.quadrupole_scaling_factor = 0.75
         self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
 
@@ -358,9 +353,9 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         bdes = np.zeros(len(self.corrs))
         for i, corrector in enumerate(self.corrs):
             if corrector[:2] == "ZH" or corrector[:2] == "ZX":
-                bdes[i] = self.lattice[corrector].get_strength()[0] * 10
+                bdes[i] = self.lattice[corrector].get_strength()[0] * 10 / self.corrector_gauss_m_per_A.get(corrector, 1.0)
             elif corrector[:2] == "ZV":
-                bdes[i] = self.lattice[corrector].get_strength()[1] * 10
+                bdes[i] = self.lattice[corrector].get_strength()[1] * 10 / self.corrector_gauss_m_per_A.get(corrector, 1.0)
 
         correctors = {"names": self.corrs, "bdes": bdes, "bact": bdes.copy()}
 
@@ -548,6 +543,17 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         if track:
             self.__track_bunch()
 
+    def load_machine_state(self, state):
+        quadrupoles = state.get_quadrupoles()
+        quads = [(name, k1l) for name, k1l in zip(quadrupoles["names"], np.ravel(quadrupoles["bdes"])) if name in self.quadrupoles and np.isfinite(k1l)]
+        self.set_quadrupoles([name for name, _ in quads], [k1l for _, k1l in quads], track=False)
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
+        correctors = state.get_correctors()
+        corrs = [(name, value) for name, value in zip(correctors["names"], np.ravel(correctors["bdes"])) if name in self.corrs and np.isfinite(value)]
+        if state.interface_id != f"{type(self).__module__}.{type(self).__name__}":
+            self.corrector_gauss_m_per_A = {name: self.current_to_k1l(name, 1.0) * self.Pref / 299.792458 * 1e4 for name, _ in corrs}
+        self.set_correctors([name for name, _ in corrs], [value for _, value in corrs])
+
     def _mag_ki_name(self, name):
         name = self._original_quad_name(str(name))
         return name[1:] if name.startswith("M") else name
@@ -581,6 +587,7 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         if not isinstance(corr_vals, (list, tuple, np.ndarray)):
             corr_vals = [corr_vals]
         for corr, val in zip(names, corr_vals):
+            val = val * self.corrector_gauss_m_per_A.get(corr, 1.0)
             if corr[:2] == "ZH" or corr[:2] == "ZX":
                 self.lattice[corr].set_strength(val / 10, 0.0)  # T*mm
             elif corr[:2] == "ZV":
@@ -593,6 +600,7 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         if not isinstance(corr_vals, (list, tuple, np.ndarray)):
             corr_vals = [corr_vals]
         for corr, val in zip(names, corr_vals):
+            val = val * self.corrector_gauss_m_per_A.get(corr, 1.0)
             if corr[:2] == "ZH" or corr[:2] == "ZX":
                 self.lattice[corr].vary_strength(val / 10, 0.0)  # T*mm
             elif corr[:2] == "ZV":

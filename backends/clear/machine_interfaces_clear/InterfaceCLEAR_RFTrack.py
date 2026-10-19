@@ -6,6 +6,29 @@ from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachi
 from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 from machine_interfaces_clear.clear_lattice import load_clear_lattice
 
+CORRECTOR_CALIBRATION_TMM_PER_A = {
+    'CA.DHG0130': -0.0623, 'CA.DVG0130': -0.0623, 'CA.DHG0225': -0.0623, 'CA.DVG0225': -0.0623,
+    'CA.DHG0245': -0.1930, 'CA.DVG0245': -0.1930, 'CA.DHG0265': -0.1913, 'CA.DVG0265': -0.2067,
+    'CA.DHG0320': -0.1936, 'CA.DVG0320': -0.1838, 'CA.DHG0385': -0.2007, 'CA.DVG0385': -0.1815,
+    'CA.DHJ0540': -0.4039, 'CA.DVJ0540': -0.3378, 'CA.DHJ0590': -0.4144, 'CA.DVJ0590': -0.3592,
+    'CA.DHJ0710': -0.4353, 'CA.DVJ0710': -0.3656, 'CA.DHJ0780': -0.4293, 'CA.DVJ0780': -0.3815,
+    'CA.DHJ0840': -0.4803, 'CA.DVJ0840': -0.4261,
+}
+QUADRUPOLE_OFFSETS_MM = {
+    'CA.QFD0350': (0.10, 0.04), 'CA.QDD0355': (-0.59, -1.09), 'CA.QFD0360': (1.29, -0.18),
+    'CA.QFD0510': (0.25, 1.27), 'CA.QDD0515': (-0.42, 0.42), 'CA.QFD0520': (0.03, -3.11),
+    'CA.QFD0760': (-0.23, -0.10), 'CA.QDD0765': (-0.11, -1.40), 'CA.QFD0770': (0.30, 0.22),
+}
+BPM_OFFSETS_MM = {
+    'CA.BPM0530': (1.80, -8.93), 'CA.BPM0595': (2.92, -5.11), 'CA.BPM0690': (0.18, -5.91),
+    'CA.BPM0820': (-2.38, -8.26), 'CA.BPM0890': (-0.77, -9.48),
+}
+INCOMING_BEAM = {'dx_mm': 0.023, 'dy_mm': -0.618, 'pitch_mrad': 0.165, 'yaw_mrad': -0.102}
+DEFAULT_CORRECTORS_A = {
+    'CA.DHG0265': 2.83, 'CA.DVG0265': -1.21, 'CA.DHG0320': -1.29, 'CA.DVG0320': 0.42, 'CA.DHG0385': -1.82,
+    'CA.DVG0385': 0.77, 'CA.DHJ0540': 1.83, 'CA.DVJ0540': 2.04, 'CA.DHJ0590': -1.54, 'CA.DVJ0590': 3.80,
+}
+
 class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
     def get_name(self):
         return 'CLEAR_RFT'
@@ -46,7 +69,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
             screen.set_length(element.get_length())
             element.replace_with(screen)
                                                                                                 # from real data we estimate 50um
-    def __init__(self, population=300 * rft.pC, jitter=0.05, bpm_resolution=0.05, nsamples=1, nparticles=1000):
+    def __init__(self, population=300 * rft.pC, jitter=0.05, bpm_resolution=0.05, nsamples=1, nparticles=1000, machine_offsets=True):
         self.sigmaCut = 4.0
         self.Pref = 198 # MeV/c
         self.Q=-1
@@ -74,15 +97,24 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         self.lattice.set_tt_nsteps(0)
         self.log = print
         self.bpms = [element.get_name() for element in self.lattice.get_bpms()]
-        self.corrs = [element.get_name() for element in self.lattice.get_correctors()]
+        self.corrs = list(CORRECTOR_CALIBRATION_TMM_PER_A)
         self.screens = [element.get_name() for element in self.lattice.get_screens()]
         self.quadrupoles = [element.get_name() for element in self.lattice.get_quadrupoles()]
         self.sextupoles = []
+        self.dfs_test_energy = 0.92 #0.963
+        self.wfs_test_charge = 0.90
         self.__setup_beam0()
         self.lattice.align_elements()
-        '''Uncomment lines below to scatter elements in the lattice.'''
-        self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
-        self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0, 0, 0, 0, 'center')
+        self.machine_offsets = machine_offsets
+        self.bpm_offsets = BPM_OFFSETS_MM if machine_offsets else {}
+        self.incoming_beam = dict(INCOMING_BEAM) if machine_offsets else dict.fromkeys(INCOMING_BEAM, 0.0)
+        if machine_offsets:
+            for name, (dx, dy) in QUADRUPOLE_OFFSETS_MM.items():
+                self.lattice[name].set_offsets(dx * 1e-3, dy * 1e-3, 0.0, 0.0, 0.0, 0.0, "center")
+        else:
+            '''Uncomment lines below to scatter elements in the lattice.'''
+            self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
+            self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0, 0, 0, 0, 'center')
         self.freq=2.997e9
         self.nr_quad=11
         self.Lquad=0.226 #magnetic length of the quadrupole in [m]
@@ -93,12 +125,14 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         #                     # dx   # dy   #dz  # roll  # pitch # yaw
         # qfd520.set_offsets(0.0, 0.0, 0.0, 0, 0.0, 0.0, "center")
 
+        self.aperture = 20e-3
         for element in self.lattice['*']:
-            element.set_aperture(2e-3, 2e-3, "circular") # in reality, CLEAR has 40mm, or 30-20mm diameter
+            element.set_aperture(self.aperture, self.aperture, "circular") # in reality, CLEAR has 40mm, or 30-20mm diameter
 
         '''test of bpm invertion'''
-        self.invert_bpm = True
-        self.__track_bunch()
+        self.invert_bpm = False
+        defaults = DEFAULT_CORRECTORS_A if machine_offsets else {}
+        self.set_correctors(list(defaults), list(defaults.values()))
         self.quadrupole_scaling_factor = 0.5
         self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
@@ -117,8 +151,6 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         sigmaCut = 5.0
         self.P0 = rft.Bunch6d (rft.electronmass, self.population,  self.Q, np.array([0.0, 0.0, 0.0, 0.0, 0.0, self.Pref]))
         self.B0 = rft.Bunch6d_QR(rft.electronmass, self.population, self.Q, self.Pref, T, self.nparticles, sigmaCut) # reference bunch
-        self.dfs_test_energy = 0.90 #0.963
-        self.wfs_test_charge = 0.90
         self._beam_mode = "nominal"
 
     def __setup_beam1(self):
@@ -278,7 +310,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
 
     def __track_bunch(self):
         I0 = self.B0.get_info()
-        dx, dy, pitch, yaw = self._jitter_offsets(I0)
+        dx, dy, pitch, yaw = np.add(self._jitter_offsets(I0), [self.incoming_beam[k] for k in ("dx_mm", "dy_mm", "pitch_mrad", "yaw_mrad")])
         dz, dt, roll = 0.0, 0.0, 0.0
         B0_offset = self.B0.displaced(dx, dy, dz, dt, roll, pitch, yaw)
         B1=self.lattice.track(B0_offset)
@@ -354,13 +386,20 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         }
 
     def get_sequence(self):
-        return self.sequence
+        return [name for element in self.sequence for name in ((element, element.replace("DH", "DV")) if element in self.corrs else (element,))]
+
+    def _bpm_reading(self, bpm_name):
+        return np.subtract(self.lattice[bpm_name].get_reading()[:2], self.bpm_offsets.get(bpm_name, (0.0, 0.0)))
+
+    @staticmethod
+    def _corrector_element(name):
+        return name.replace("DVG", "DHG").replace("DVJ", "DHJ"), int("DV" in name)
 
     def get_hcorrectors_names(self):
-        return [string for string in self.corrs if "DHG" in string]
+        return [string for string in self.corrs if "DH" in string]
 
     def get_vcorrectors_names(self):
-        return [string for string in self.corrs if ("DHJ" in string) or ("SDV" in string) ]
+        return [string for string in self.corrs if "DV" in string]
 
     def get_elements_position(self,names):
         return [index for index, string in enumerate(self.sequence) if string in names]
@@ -387,12 +426,8 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         #self.log("Reading correctors' strengths...")
         bdes = np.zeros(len(self.corrs))
         for i,corrector in enumerate(self.corrs):
-            c=self.lattice[corrector]
-            hx,hy=c.get_strength()
-            if "DHG" in corrector: #horizontal
-                bdes[i] = (hx*10)  # gauss*m
-            elif ("SDV" in corrector) or ("DHJ" in corrector): #vertical
-                bdes[i] = (hy*10)  # gauss*m
+            element, plane = self._corrector_element(corrector)
+            bdes[i] = self.lattice[element].get_strength()[plane] / CORRECTOR_CALIBRATION_TMM_PER_A[corrector]
         correctors = { "names": self.corrs, "bdes": bdes, "bact": bdes }
 
         if isinstance(names, str):
@@ -418,7 +453,7 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
                 self.__track_bunch()
             for j, bpm_name in enumerate(self.bpms):
                 bpm = self.lattice[bpm_name]
-                reading = bpm.get_reading()
+                reading = self._bpm_reading(bpm_name)
                 '''test of inverted bpm'''
                 sign = -1.0 if (self.invert_bpm and bpm_name == "CA.BPM0890") else 1.0
 
@@ -449,11 +484,10 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         if not isinstance(corr_vals, (list, tuple, np.ndarray)):
             corr_vals = [corr_vals]
         for corr, val in zip(names, corr_vals):
-            c = self.lattice[corr]
-            if "DHG" in corr:
-                c.set_strength(val / 10, 0.0)
-            elif ("DHJ" in corr) or ("SDV" in corr):
-                c.set_strength(0.0, val / 10)
+            element, plane = self._corrector_element(corr)
+            strength = list(self.lattice[element].get_strength())
+            strength[plane] = val * CORRECTOR_CALIBRATION_TMM_PER_A[corr]
+            self.lattice[element].set_strength(*strength)
         self.__track_bunch()
 
     def vary_correctors(self, names, corr_vals):
@@ -462,12 +496,53 @@ class InterfaceCLEAR_RFTrack(AbstractMachineInterface):
         if not isinstance(corr_vals, (list, tuple, np.ndarray)):
             corr_vals = [corr_vals]
         for corr, val in zip(names, corr_vals):
-            c = self.lattice[corr]
-            if "DHG" in corr:
-                c.vary_strength(val / 10, 0.0)
-            elif ("DHJ" in corr) or ("SDV" in corr):
-                c.vary_strength(0.0, val / 10)
+            element, plane = self._corrector_element(corr)
+            delta = [0.0, 0.0]
+            delta[plane] = val * CORRECTOR_CALIBRATION_TMM_PER_A[corr]
+            self.lattice[element].vary_strength(*delta)
         self.__track_bunch()
+
+    def load_machine_state(self, state):
+        quadrupoles = state.get_quadrupoles()
+        currents = quadrupoles["bdes"] if quadrupoles.get("value_unit") == "A" else quadrupoles.get("ides", quadrupoles["bdes"])
+        quads = [(name, current) for name, current in zip(quadrupoles["names"], np.ravel(currents)) if name in self.quadrupoles]
+        self.set_quadrupoles([name for name, _ in quads], [current for _, current in quads], track=False)
+        self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
+        correctors = state.get_correctors()
+        corrs = [(name, value) for name, value in zip(correctors["names"], np.ravel(correctors["bdes"])) if name in self.corrs]
+        self.set_correctors([name for name, _ in corrs], [value for _, value in corrs])
+        measured = state.get_orbit(self.bpms)
+        measured = np.r_[measured["x"], measured["y"]]
+        keys, jitter = ("dx_mm", "dy_mm", "pitch_mrad", "yaw_mrad"), self.jitter
+        self.jitter = 0.0
+        self.incoming_beam = dict(INCOMING_BEAM) if self.machine_offsets else dict.fromkeys(INCOMING_BEAM, 0.0)
+        for element in self.lattice['*']:
+            element.set_aperture(1.0, 1.0, "circular")
+
+        def orbit():
+            self.__track_bunch()
+            readings = np.array([self._bpm_reading(bpm) for bpm in self.bpms], dtype=float)
+            charge = np.array([self.lattice[bpm].get_total_charge() for bpm in self.bpms], dtype=float)
+            readings[charge == 0] = np.nan
+            return np.r_[readings[:, 0], readings[:, 1]]
+
+        for _ in range(5):
+            base, columns = orbit(), []
+            for key, step in zip(keys, (0.1, 0.1, 0.01, 0.01)):
+                self.incoming_beam[key] += step
+                columns.append((orbit() - base) / step)
+                self.incoming_beam[key] -= step
+            J = np.column_stack(columns)
+            ok = np.isfinite(measured) & np.isfinite(base) & np.all(np.isfinite(J), axis=1)
+            correction = np.linalg.lstsq(np.vstack([J[ok], np.diag([0.5, 0.5, 2.0, 2.0])]), np.r_[(measured - base)[ok], np.zeros(4)], rcond=None)[0]
+            for key, value in zip(keys, correction):
+                self.incoming_beam[key] += value
+        for element in self.lattice['*']:
+            element.set_aperture(self.aperture, self.aperture, "circular")
+        residual = measured - orbit()
+        self.jitter = jitter
+        self.__track_bunch()
+        return float(np.sqrt(np.nanmean(residual ** 2)))
 
     def _build_bunch_from_guesses(self, emit_x, emit_y, beta_x0, beta_y0, alpha_x0, alpha_y0, energy_pref=None):
         T = rft.Bunch6d_twiss()

@@ -30,6 +30,8 @@ QUADRUPOLE_SCALING = {'label': 'Change energy',
             'measurement_button': 'Measure Quadrupole Scaling',
             'measurement_tooltip': 'Measure the orbit change caused by scaling quadrupole currents.'}}
 
+EXT_QUADRUPOLE_SCALING = {**QUADRUPOLE_SCALING, 'test': {**QUADRUPOLE_SCALING['test'], 'default': 0.75}}
+
 INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'module': 'machine_interfaces_atf2.InterfaceATF2_DR',
   'class_name': 'InterfaceATF2_DR',
@@ -100,7 +102,7 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'clock_timezone': 'Asia/Tokyo',
   'beam_change': {'methods': ['Change RF frequency (RAMP/PL4)', 'Quadrupole scaling'],
                   'method_settings': {
-                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
+                      'Quadrupole scaling': {'energy': EXT_QUADRUPOLE_SCALING}},
                   'method_ids': {
                       'Change RF frequency (RAMP/PL4)': 'default',
                       'Quadrupole scaling': 'quadrupole_scaling',
@@ -135,7 +137,7 @@ INTERFACES = [{'display_name': 'ATF2 Damping Ring',
   'clock_timezone': 'Europe/Zurich',
   'beam_change': {'methods': ['Change Pref', 'Quadrupole scaling'],
                   'method_settings': {
-                      'Quadrupole scaling': {'energy': QUADRUPOLE_SCALING}},
+                      'Quadrupole scaling': {'energy': EXT_QUADRUPOLE_SCALING}},
                   'method_ids': {
                       'Change Pref': 'default',
                       'Quadrupole scaling': 'quadrupole_scaling',
