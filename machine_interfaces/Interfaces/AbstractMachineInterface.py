@@ -84,6 +84,12 @@ class AbstractMachineInterface(ABC):
     def set_sextupoles(self, names, values):
         raise NotImplementedError(f"{self.get_name()} does not implement set_sextupoles")
 
+    def switch_off_sextupoles(self):
+        pass
+
+    def reset_sextupoles(self):
+        pass
+
     def get_screens(self, names=None):
         return {"names": [], "hpixel": np.array([]), "vpixel": np.array([]), "x":np.array([]),"y":np.array([]), "sigx":np.array([]), "sigy":np.array([]),"sum":np.array([]),"hedges":[],"vedges":[],"images":[],"S":np.array([])}
 

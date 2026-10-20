@@ -224,6 +224,7 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
             self.qmag_pv[alias] = self._build_qmag_pv_names(alias)
         self.bg_shots = int(bg_shots)
         self.quadrupole_scaling_factor = 0.75
+        self._saved_sextupoles_state = None
         self.initial_quad_currents = self.get_quadrupoles()["bdes"].copy()
 
     def current_to_k1l(self, name, current_A):
@@ -1114,6 +1115,15 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         for name, value in zip(names, values):
             self._pv_put(f"{name}:currentWrite", float(value))
             self._wait_for_magnet_readback(name, value)
+
+    def switch_off_sextupoles(self):
+        self._saved_sextupoles_state = self.get_sextupoles()
+        self.set_sextupoles(self.sextupoles, np.zeros(len(self.sextupoles)))
+
+    def reset_sextupoles(self):
+        if self._saved_sextupoles_state is not None:
+            self.set_sextupoles(self._saved_sextupoles_state["names"], self._saved_sextupoles_state["bdes"])
+            self._saved_sextupoles_state = None
 
     def _wait_for_magnet_readback(self, magnet, target, tolerance=1e-4, timeout=1.0, poll_interval=0.05):
         readback_pv = PV(f'{magnet}:currentRead')

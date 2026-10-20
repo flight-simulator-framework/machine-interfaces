@@ -56,6 +56,7 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         #self.qm_list = [s for s in self.interface.get_sequence() if str(s).upper().startswith("Q")]
         self.bg_shots = int(bg_shots)
         self.machine_name = "ATF2"
+        rft.rng_set_seed(5489)
         self.lattice.align_elements()
         self.lattice.scatter_elements('quadrupole', 0.100, 0.100, 0.100, 0, 0, 0, 'center')
         self.lattice.scatter_elements('bpm', 0.100, 0.100, 0, 0, 0, 0, 'center')
@@ -910,6 +911,15 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
                 strengths[2] = complex(float(value), 0.0)
                 element.set_strengths(strengths)
         self.__track_bunch()
+
+    def switch_off_sextupoles(self):
+        self._saved_sextupoles_state = self.get_sextupoles()
+        self.set_sextupoles(self.sextupoles, np.zeros(len(self.sextupoles)))
+
+    def reset_sextupoles(self):
+        if self._saved_sextupoles_state is not None:
+            self.set_sextupoles(self._saved_sextupoles_state["names"], self._saved_sextupoles_state["bdes"])
+            self._saved_sextupoles_state = None
 
     def get_phase_space_transport_to_screens(self, reference_screen=None, screens=None):
         if screens is None:
