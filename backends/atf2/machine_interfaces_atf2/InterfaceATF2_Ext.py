@@ -1121,9 +1121,11 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         self.set_sextupoles(self.sextupoles, np.zeros(len(self.sextupoles)))
 
     def reset_sextupoles(self):
-        if self._saved_sextupoles_state is not None:
-            self.set_sextupoles(self._saved_sextupoles_state["names"], self._saved_sextupoles_state["bdes"])
-            self._saved_sextupoles_state = None
+        if self._saved_sextupoles_state is None:
+            return False
+        self.set_sextupoles(self._saved_sextupoles_state["names"], self._saved_sextupoles_state["bdes"])
+        self._saved_sextupoles_state = None
+        return True
 
     def _wait_for_magnet_readback(self, magnet, target, tolerance=1e-4, timeout=1.0, poll_interval=0.05):
         readback_pv = PV(f'{magnet}:currentRead')

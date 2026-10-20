@@ -917,9 +917,11 @@ class InterfaceATF2_Ext_RFTrack(AbstractMachineInterface):
         self.set_sextupoles(self.sextupoles, np.zeros(len(self.sextupoles)))
 
     def reset_sextupoles(self):
-        if self._saved_sextupoles_state is not None:
-            self.set_sextupoles(self._saved_sextupoles_state["names"], self._saved_sextupoles_state["bdes"])
-            self._saved_sextupoles_state = None
+        if self._saved_sextupoles_state is None:
+            return False
+        self.set_sextupoles(self._saved_sextupoles_state["names"], self._saved_sextupoles_state["bdes"])
+        self._saved_sextupoles_state = None
+        return True
 
     def get_phase_space_transport_to_screens(self, reference_screen=None, screens=None):
         if screens is None:
