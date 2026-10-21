@@ -46,10 +46,13 @@ def main() -> None:
         machine.make_entrance_bunch_from_phase_space(entrance),
         dr_turns=10,
         record_turn_history=True,
+        retain_final_bunch=True,
     )
     _require(result.input.particles == entrance.particles, "direct input particle count changed")
     _require(result.completed_dr_turns == 10, "direct 6D fixture did not complete 10 DR turns")
     _require(result.dr_after_turns.survival_fraction_from_input == 1.0, "direct 6D fixture lost in DR")
+    _require(result.final_bunch.size() == entrance.particles, "retained downstream bunch count changed")
+    _require("final_bunch" not in result.as_dict(), "live RF-Track bunch leaked into JSON report")
     print(json.dumps({
         "status": "passed",
         "simulation_only": True,

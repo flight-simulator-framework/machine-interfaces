@@ -158,13 +158,13 @@ class InterfaceATF2_BT_RFTrack(AbstractMachineInterface):
         self,
         apertures_mm: dict[str, tuple[float, float] | tuple[float, float, str]],
     ) -> dict[str, tuple[float, float, str]]:
-        """Apply supplied half-apertures in RF-Track millimetres.
+        """Convert caller-supplied millimetres to RF-Track aperture metres.
 
         The historical BT TFS contains no aperture information.  This method
         intentionally accepts only explicit caller-provided values, normally
         from a survey or an approved engineering aperture table.  A two-value
         tuple is circular; a third value selects an RF-Track shape such as
-        ``"rectangular"`` or ``"elliptical"``.
+        ``"rectangular"`` (unequal circular radii give an ellipse).
         """
         configured: dict[str, tuple[float, float, str]] = {}
         for name, specification in apertures_mm.items():
@@ -181,9 +181,9 @@ class InterfaceATF2_BT_RFTrack(AbstractMachineInterface):
                 raise ValueError(f"{name}: no BT lattice element exists for aperture assignment")
             for element in elements:
                 if len(specification) == 3:
-                    element.set_aperture(x_mm, y_mm, shape)
+                    element.set_aperture(x_mm * 1e-3, y_mm * 1e-3, shape)
                 else:
-                    element.set_aperture(x_mm, y_mm)
+                    element.set_aperture(x_mm * 1e-3, y_mm * 1e-3)
             configured[name] = (x_mm, y_mm, shape)
         return configured
 
