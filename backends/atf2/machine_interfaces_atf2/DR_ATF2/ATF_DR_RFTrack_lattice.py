@@ -252,8 +252,8 @@ def _instance_name(
     return f"{source_name.upper()}.{occurrences[source_name]}"
 
 
-def _rotate_ring_sequence(sequence: list[str], start_at: str | None) -> list[str]:
-    """Return one periodic SAD sequence, optionally beginning at an instance.
+def _ring_start_index(sequence: list[str], start_at: str | None) -> int:
+    """Locate an exact occurrence in the original periodic SAD sequence.
 
     ``start_at`` uses the source occurrence notation emitted by this module,
     such as ``KII.1``.  It is intentionally an exact selector: a ring can be
@@ -261,7 +261,7 @@ def _rotate_ring_sequence(sequence: list[str], start_at: str | None) -> list[str
     guessed from a bare repeated element name.
     """
     if start_at is None:
-        return list(sequence)
+        return 0
     requested = start_at.upper()
     occurrences: Counter[str] = Counter()
     names: list[str] = []
@@ -276,7 +276,42 @@ def _rotate_ring_sequence(sequence: list[str], start_at: str | None) -> list[str
         )
         detail = f" Candidates: {', '.join(candidates)}" if candidates else ""
         raise ValueError(f"Unknown RING0 start element {start_at!r}.{detail}") from error
+    return index
+
+
+def _rotate_ring_sequence(sequence: list[str], start_at: str | None) -> list[str]:
+    index = _ring_start_index(sequence, start_at)
     return list(sequence[index:]) + list(sequence[:index])
+
+
+def _named_ring_sequence(data, start_at=None, rf_mode="disabled"):
+    """Assign physical identities in source order, then change the origin.
+
+    In particular MB22R must not become MB1R when starting at KII.1, and
+    selecting KII.2 must not silently rename the selected half to KII.1.
+    Preserve the existing unrotated naming convention, including companions.
+    """
+    sequence = data["sequence"]
+    occurrences = Counter()
+    bpm_index = drift_index = 0
+    named = []
+    for source_name in sequence:
+        definition = data["definitions"][source_name]
+        element_type = definition["type"]
+        occurrences[source_name] += 1
+        passive_bend = (element_type == "BEND"
+                        and not source_name.upper().startswith(("ZH", "ZV"))
+                        and source_name.upper() not in PULSED_KICKER_SAD_NAMES
+                        and not float(definition["attributes"].get("ANGLE", 0.0)))
+        if (element_type in {"DRIFT", "MARK"} or passive_bend
+                or (element_type == "CAVI" and rf_mode == "disabled")):
+            drift_index += 1
+        if element_type == "MONI" and source_name == "M":
+            bpm_index += 1
+        named.append((source_name, _instance_name(
+            source_name, element_type, occurrences, bpm_index, drift_index)))
+    index = _ring_start_index(sequence, start_at)
+    return named[index:] + named[:index]
 
 
 def build_atf_dr_lattice(
@@ -338,7 +373,7 @@ def build_atf_dr_lattice(
 
     data = load_lattice_data(lattice_data_path)
     definitions = data["definitions"]
-    sequence = _rotate_ring_sequence(list(data["sequence"]), start_at)
+    sequence = _named_ring_sequence(data, start_at, rf_mode)
     p_over_q = float(momentum_mev_c) / float(charge)
     lattice = rft.Lattice()
 
@@ -346,20 +381,14 @@ def build_atf_dr_lattice(
     start.set_name("RING0$START")
     lattice.append(start)
 
-    occurrences: Counter[str] = Counter()
-    bpm_index = 0
-    drift_index = 0
-
-    for source_name in sequence:
+    for source_name, instance_name in sequence:
         definition = definitions[source_name]
         element_type = definition["type"]
         attributes = definition["attributes"]
         length = float(attributes.get("L", 0.0))
-        occurrences[source_name] += 1
 
         if element_type == "DRIFT":
             element = rft.Drift(length)
-            drift_index += 1
         elif element_type == "BEND":
             angle = float(attributes.get("ANGLE", 0.0))
             if (
@@ -389,7 +418,6 @@ def build_atf_dr_lattice(
                 # BHE and other zero-angle BENDs are passive in this model.
                 # KII/KIX were handled above as zero-strength pulsed kickers.
                 element = rft.Drift(length)
-                drift_index += 1
         elif element_type == "QUAD":
             # SAD's K1 in this daihon is the integrated strength K1*L.
             # RF-Track's Quadrupole constructor expects K1 [m^-2].
@@ -412,15 +440,11 @@ def build_atf_dr_lattice(
                 element.set_strengths(np.zeros(3, dtype=complex))
         elif element_type == "MONI":
             element = rft.Bpm(length)
-            if source_name == "M":
-                bpm_index += 1
         elif element_type == "MARK":
             element = rft.Drift(length)
-            drift_index += 1
         elif element_type == "CAVI":
             if rf_mode == "disabled":
                 element = rft.Drift(0.0)
-                drift_index += 1
             else:
                 voltage_v = float(attributes["VOLT"]) * float(rf_voltage_scale)
                 frequency_hz = float(attributes["FREQ"])
@@ -440,13 +464,6 @@ def build_atf_dr_lattice(
         else:  # pragma: no cover - protected by the generator
             raise ValueError(f"Unsupported SAD element type: {element_type}")
 
-        instance_name = _instance_name(
-            source_name,
-            element_type,
-            occurrences,
-            bpm_index,
-            drift_index,
-        )
         element.set_name(instance_name)
         lattice.append(element)
 
