@@ -521,11 +521,11 @@ class SaveOrLoad():
             QMessageBox.warning(self, "Load session settings", f"Could not load session:\n{e}")
             return
 
-    def load_session_settings(self):
+    def load_session_settings(self, folder=None):
         default_dir = f"~/CERN-Flight_Simulator-Data/"
         default_dir = os.path.expanduser(os.path.expandvars(default_dir))
         os.makedirs(default_dir, exist_ok=True)
-        folder = QFileDialog.getExistingDirectory(self, "Select database", default_dir)
+        folder = folder or QFileDialog.getExistingDirectory(self, "Select database", default_dir)
         if not folder:
             return
         if hasattr(self, "session_database_3"):

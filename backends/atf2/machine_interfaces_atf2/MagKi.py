@@ -39,7 +39,9 @@ class MagKiWrapper:
         return self._call(self.MODE_I_TO_K, name, energy_GeV, current_main=current_A)["k"]
 
     def k1l_to_current(self, name, k1, energy_GeV):
-        return self._call(self.MODE_K_TO_I, name, energy_GeV, k_main=k1)["current"]
+        current = self._call(self.MODE_K_TO_I, name, energy_GeV, k_main=k1)["current"]
+        flipped = self.current_to_k1l(name, -current, energy_GeV)
+        return -current if flipped * k1 > 0 and abs(flipped - k1) < abs(self.current_to_k1l(name, current, energy_GeV) - k1) else current
 
 def load_mag_ki():
     candidates = []
