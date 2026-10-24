@@ -573,6 +573,7 @@ class SaveOrLoad():
         paths = settings.get("data_dirs") or {}
         for key, path in paths.items():
             if not path:
+                self._data_dirs[key] = None
                 continue
             path = os.path.expanduser(os.path.expandvars(path))
             info = self._find_useful_files(path)
