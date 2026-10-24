@@ -796,6 +796,7 @@ class SaveOrLoad():
             "nsamples": int(self.interface.nsamples),
             "rcond": rcond,
             "beta": beta,
+            "corrector_weights": getattr(self, "corrector_weights", {}),
             "max_horizontal_current": self.max_horizontal_current_spinbox.value(),
             "max_vertical_current": self.max_vertical_current_spinbox.value(),
             "is_triangular": bool(self.triangular_checkbox.isChecked()),
@@ -908,6 +909,12 @@ class SaveOrLoad():
         self.restore_state = None
         self._loading_func(self.correctors_list, "correctors.txt", "Load Correctors", use_dialog=False, base_dir=folder)
         self._loading_func(self.bpms_list, "bpms.txt", "Load BPMs", use_dialog=False, base_dir=folder)
+        if hasattr(self, "corrector_weights"):
+            self.corrector_weights = {str(k): float(v) for k, v in settings.get("corrector_weights", {}).items()}
+            for i in range(self.correctors_list.count()):
+                self._update_corrector_weights(self.correctors_list.item(i))
+            self._R_matrix = None
+            self.current_delta = None
         if "rcond" in settings:
             self.pinv_edit.setText(str(settings["rcond"]))
         if "beta" in settings:
