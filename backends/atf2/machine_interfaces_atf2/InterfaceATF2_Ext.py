@@ -1,10 +1,8 @@
-import RF_Track as rft
 import sys, time, math, os, threading, struct, ctypes, subprocess
 import numpy as np
 from epics import PV, ca, caget, caget_many
 from machine_interfaces.Interfaces.AbstractMachineInterface import AbstractMachineInterface
 from collections import defaultdict
-from machine_interfaces_atf2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
 from machine_interfaces_atf2.MagKi import load_mag_ki
 from machine_interfaces.Backend.EnergyChangeMethod import EnergyChangeMethod
 
@@ -20,6 +18,10 @@ class InterfaceATF2_Ext(AbstractMachineInterface):
         return 'ATF2_Ext'
 
     def __init__(self, bg_shots=10.0, nsamples=10, nominal_intensity=0.15, wfs_intensity=0.1):
+        # Importing the interface type (e.g. by an injected IPBSM optimizer)
+        # must not load the native tracker into an observation-only policy.
+        import RF_Track as rft
+        from machine_interfaces_atf2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
         self.screen_backgrounds = {}
         self.nsamples = nsamples
         self.bpm_sample_interval_s = 0.5
